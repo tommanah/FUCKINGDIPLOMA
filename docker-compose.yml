@@ -7,7 +7,7 @@ services:
       - "3000:3000"
     environment:
       - MONGO_URI=mongodb://mongodb:27017/auth-db
-      - JWT_SECRET=LOLmicropencilHAHA123
+      - JWT_SECRET=supersecretkey123
     depends_on:
       - mongodb
     restart: always
