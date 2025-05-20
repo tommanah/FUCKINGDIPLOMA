@@ -1,0 +1,41 @@
+.Main {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+}
+
+.map-with-auth-overlay {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.background-map {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.auth-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.ar-view {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100;
+} 

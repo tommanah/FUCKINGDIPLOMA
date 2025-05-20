@@ -1,0 +1,276 @@
+.App {
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  position: relative;
+  z-index: 2;
+  max-width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.App-header {
+  min-height: 20vh;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(16px + 1.5vmin);
+}
+
+.App-body {
+  height: auto;
+  min-height: 25vh;
+  margin: 2vh auto;
+  width: 90%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-between;
+  background-color: rgba(212, 218, 228, 0.85);
+  border-radius: 30px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.sliding-background {
+  position: absolute;
+  width: 50%;
+  height: 100%;
+  background-color: rgba(108, 121, 144, 0.9);
+  border-radius: 30px;
+  transition: transform 0.5s ease;
+  z-index: 1;
+}
+
+.login-active {
+  transform: translateX(0);
+}
+
+.register-active {
+  transform: translateX(100%);
+}
+
+.App-body-login,
+.App-body-register {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 30px;
+  height: 100%;
+  width: 50%;
+  padding: 3vh 2vh;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+  animation: fade-in 0.5s ease;
+  color: #e0ddfe;
+  letter-spacing: 0.1vh;
+}
+
+.App-body-login h1,
+.App-body-register h1 {
+  margin: 0 0 2vh 0;
+  font-size: calc(16px + 1vmin);
+}
+
+.App-body-login-input {
+  width: 80%;
+  padding: 1.2vh;
+  margin-bottom: 1.5vh;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Courier New', monospace;
+  outline: none;
+  font-size: calc(10px + 0.5vmin);
+  font-weight: 550;
+  letter-spacing: 0.1vh;
+}
+
+.App-body-login-button,
+.App-body-register-button {
+  width: 80%;
+  padding: 1vh;
+  margin-top: 1vh;
+  border-radius: 10px;
+  border: none;
+  font-family: 'Courier New', monospace;
+  outline: none;
+  font-size: calc(10px + 0.5vmin);
+  font-weight: 550;
+  background-color: transparent;
+  color: #e0ddfe;
+  letter-spacing: 0.1vh;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.App-body-login-button:hover,
+.App-body-register-button:hover {
+  background-color: #d4dae4;
+  color: #6c7990;
+}
+
+.App-enter-without-registration {
+  margin-top: 2vh;
+  width: 80%;
+  max-width: 300px;
+  padding: 1.5vh;
+  border-radius: 20px;
+  border: none;
+  font-family: 'Courier New', monospace;
+  outline: none;
+  font-size: calc(10px + 0.5vmin);
+  font-weight: 550;
+  background-color: rgba(212, 218, 228, 0.85);
+  color: #333;
+  letter-spacing: 0.1vh;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.App-enter-without-registration:hover {
+  background-color: #6c7990;
+  color: #d4dae4;
+}
+
+.App-body-register-2 {
+  width: 50%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  flex-direction: column;
+  animation: fade-in 0.5s ease;
+  z-index: 2;
+  position: relative;
+  cursor: pointer;
+  padding: 2vh;
+  font-size: calc(14px + 0.8vmin);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.App-body-register-2 div {
+  font-size: calc(10px + 0.5vmin) !important;
+  font-weight: 550;
+  margin-top: 1vh;
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-left {
+  0% {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  0% {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Адаптивность для устройств с шириной до 768px (планшеты) */
+@media screen and (max-width: 768px) {
+  .App-body {
+    width: 95%;
+    max-width: 600px;
+    min-height: 300px;
+  }
+  
+  .App-body-login h1,
+  .App-body-register h1 {
+    font-size: calc(14px + 0.8vmin);
+    margin-bottom: 1.5vh;
+  }
+  
+  .App-body-register-2 {
+    font-size: calc(12px + 0.8vmin);
+  }
+}
+
+/* Адаптивность для устройств с шириной до 480px (мобильные) */
+@media screen and (max-width: 480px) {
+  .App-header {
+    min-height: 15vh;
+    font-size: calc(14px + 1vmin);
+  }
+  
+  .App-body {
+    flex-direction: column;
+    height: auto;
+    width: 90%;
+    max-width: 350px;
+  }
+  
+  .sliding-background {
+    width: 100%;
+    height: 50%;
+    transform: translateY(0);
+  }
+  
+  .register-active {
+    transform: translateY(100%);
+  }
+  
+  .App-body-login,
+  .App-body-register,
+  .App-body-register-2 {
+    width: 100%;
+    height: auto;
+    padding: 3vh 2vh;
+  }
+  
+  .App-body-register-2 {
+    padding: 2vh;
+  }
+  
+  .App-body-login-input {
+    margin-bottom: 1vh;
+  }
+  
+  .App-body-login h1,
+  .App-body-register h1 {
+    font-size: calc(12px + 0.8vmin);
+    margin-bottom: 1vh;
+  }
+  
+  .App-enter-without-registration {
+    width: 90%;
+    max-width: 250px;
+  }
+} 
