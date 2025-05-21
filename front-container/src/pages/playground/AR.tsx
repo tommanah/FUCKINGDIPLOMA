@@ -1,12 +1,58 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useAppSelector } from '../../store/hooks';
+import { useNavigate } from 'react-router-dom';
+
+// Добавляем интерфейс для navigator.xr
+interface XRSystem {
+  isSessionSupported(mode: string): Promise<boolean>;
+  requestSession(mode: string, options?: any): Promise<XRSession>;
+}
+
+interface XRSession {
+  requestReferenceSpace(type: string): Promise<XRReferenceSpace>;
+  requestHitTestSource(options: any): Promise<XRHitTestSource>;
+  requestAnimationFrame(callback: XRFrameRequestCallback): number;
+  end(): Promise<void>;
+}
+
+interface XRReferenceSpace {
+  // Базовые свойства XRReferenceSpace
+}
+
+interface XRHitTestSource {
+  // Базовые свойства XRHitTestSource
+}
+
+interface XRFrame {
+  getHitTestResults(hitTestSource: XRHitTestSource): Array<XRHitTestResult>;
+}
+
+interface XRHitTestResult {
+  getPose(referenceSpace: XRReferenceSpace): XRPose | undefined;
+}
+
+interface XRPose {
+  transform: {
+    matrix: Float32Array;
+  };
+}
+
+type XRFrameRequestCallback = (time: number, frame: XRFrame) => void;
+
+// Расширяем глобальный интерфейс Navigator
+declare global {
+  interface Navigator {
+    xr?: XRSystem;
+  }
+}
 
 function AR() {
   const mountRef = useRef<HTMLDivElement>(null);
   const token = useAppSelector(state => state.auth.token);
   const isDemoUser = token === 'demo-token-no-permissions';
   const [arActive, setArActive] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -79,23 +125,6 @@ function AR() {
             pointer-events: auto;
         }
         
-        #ARButton {
-            position: fixed !important;
-            bottom: 20px !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            padding: 12px 24px !important;
-            border: 1px solid #fff !important;
-            border-radius: 4px !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            color: #fff !important;
-            font: 13px sans-serif !important;
-            text-align: center !important;
-            outline: none !important;
-            z-index: 999999 !important;
-            cursor: pointer !important;
-        }
-        
         .demo-restrictions {
             position: fixed;
             bottom: 70px;
@@ -120,48 +149,97 @@ function AR() {
             z-index: 200;
         }
         
-        .ar-header {
+        .back-button {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
+            top: 15px;
+            right: 15px;
             background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 99999;
-            pointer-events: auto;
-        }
-        
-        .ar-header .title {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        
-        .close-ar-button {
-            background: #f44336;
             color: white;
             border: none;
             padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 99999;
+        }
+
+        .burger-menu {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 99999;
+            font-size: 24px;
+        }
+
+        .menu-container {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 99999;
+            transition: left 0.3s ease;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .menu-container.open {
+            left: 0;
+        }
+
+        .menu-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .menu-item {
+            margin-top: 60px;
+            padding: 12px 15px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .stop-ar-button {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 12px 24px;
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
             font-size: 16px;
-        }
-        
-        .back-button {
-            position: fixed;
-            top: 70px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
             z-index: 99999;
         }
       `;
@@ -185,19 +263,9 @@ function AR() {
         }
         
         // Создаем домашний оверлей перед созданием AR сессии
-        // Это важно, так как domOverlay должен существовать до запуска XR сессии
         const uiContainer = document.createElement('div');
         uiContainer.className = 'ui-container';
         document.body.appendChild(uiContainer);
-        
-        // Добавляем верхнюю панель с кнопкой закрытия
-        const arHeader = document.createElement('div');
-        arHeader.className = 'ar-header';
-        arHeader.innerHTML = `
-          <div class="title">AR Режим</div>
-          <button class="close-ar-button" id="closeArButton">Закрыть AR</button>
-        `;
-        uiContainer.appendChild(arHeader);
         
         // Добавляем кнопку "Назад"
         const backButton = document.createElement('button');
@@ -222,6 +290,13 @@ function AR() {
         `;
         uiContainer.appendChild(modelSelectContainer);
         
+        // Добавляем кнопку остановки AR
+        const stopArButton = document.createElement('button');
+        stopArButton.className = 'stop-ar-button';
+        stopArButton.id = 'stopArButton';
+        stopArButton.textContent = 'Остановить AR';
+        uiContainer.appendChild(stopArButton);
+        
         // Если демо-пользователь, показываем ограниченную функциональность
         if (isDemoUser) {
           const demoNotice = document.createElement('div');
@@ -230,130 +305,209 @@ function AR() {
           uiContainer.appendChild(demoNotice);
         }
         
+        // Создаем бургер-меню для 3D карты (вне AR)
+        const burgerButton = document.createElement('button');
+        burgerButton.className = 'burger-menu';
+        burgerButton.id = 'burgerButton';
+        burgerButton.innerHTML = '☰';
+        document.body.appendChild(burgerButton);
+        
+        // Создаем контейнер меню
+        const menuContainer = document.createElement('div');
+        menuContainer.className = 'menu-container';
+        menuContainer.id = 'menuContainer';
+        menuContainer.innerHTML = `
+          <button class="menu-close" id="menuClose">✕</button>
+          <button class="menu-item" id="arButton">Запустить AR</button>
+          <button class="menu-item" id="logoutButton">Выйти</button>
+        `;
+        document.body.appendChild(menuContainer);
+        
+        // Добавляем обработчик для кнопки бургер-меню
+        burgerButton.addEventListener('click', () => {
+          menuContainer.classList.add('open');
+        });
+        
+        // Добавляем обработчик для закрытия меню
+        const menuClose = document.getElementById('menuClose');
+        if (menuClose) {
+          menuClose.addEventListener('click', () => {
+            menuContainer.classList.remove('open');
+          });
+        }
+        
+        // Добавляем обработчик для кнопки выхода
+        const logoutButton = document.getElementById('logoutButton');
+        if (logoutButton) {
+          logoutButton.addEventListener('click', () => {
+            // Перенаправляем на главную страницу
+            navigate('/');
+          });
+        }
+        
         // Добавляем свет
         const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
         light.position.set(0.5, 1, 0.25);
         scene.add(light);
         
-        // Создаем кнопку для запуска AR
-        const xrButton = ARButton.createButton(renderer, {
-          requiredFeatures: ['hit-test'],
-          optionalFeatures: ['dom-overlay'],
-          domOverlay: { root: document.body }  // Используем body как root для overlay
-        });
-        document.body.appendChild(xrButton);
+        // Добавляем обработчик для кнопки AR в меню
+        const arButton = document.getElementById('arButton');
+        if (arButton) {
+          arButton.addEventListener('click', () => {
+            menuContainer.classList.remove('open');
+            startARSession();
+          });
+        }
         
-        // Устанавливаем обработчики для отслеживания статуса AR сессии
-        renderer.xr.addEventListener('sessionstart', () => {
-          console.log('AR session started');
+        // Функция для запуска AR сессии
+        const startARSession = () => {
+          // Сразу запускаем AR сессию без отдельной кнопки WebXR
+          if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+              if (supported) {
+                navigator.xr.requestSession('immersive-ar', {
+                  requiredFeatures: ['hit-test'],
+                  optionalFeatures: ['dom-overlay'],
+                  domOverlay: { root: document.body }
+                }).then(onSessionStarted, (error) => {
+                  console.error('Ошибка при запуске AR сессии:', error);
+                  alert('Не удалось запустить AR. Убедитесь, что ваше устройство поддерживает AR.');
+                });
+              } else {
+                alert('Ваше устройство не поддерживает AR.');
+              }
+            });
+          } else {
+            alert('WebXR не поддерживается в вашем браузере.');
+          }
+        };
+        
+        // Функция обработки начала сессии
+        const onSessionStarted = (session: XRSession) => {
+          renderer.xr.setReferenceSpaceType('local');
+          renderer.xr.setSession(session);
+          
+          // Показываем элементы управления AR
+          modelSelectContainer.style.display = 'flex';
+          stopArButton.style.display = 'block';
+          backButton.style.display = 'block';
+          
+          // Скрываем меню бургера во время AR сессии
+          burgerButton.style.display = 'none';
+          
           setArActive(true);
           
-          // Убедимся, что UI элементы видны в AR режиме
-          arHeader.style.display = 'flex';
-          backButton.style.display = 'block';
-          modelSelectContainer.style.display = 'flex';
-        });
+          // Настройка hit-test
+          setupHitTest(session);
+        };
         
+        // Настройка hit-test
+        const setupHitTest = async (session: XRSession) => {
+          const viewerSpace = await session.requestReferenceSpace('viewer');
+          const hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace });
+           
+          if (!hitTestSource) {
+            console.error('Не удалось создать источник hit-test');
+            return;
+          }
+          
+          // Создаем указатель для размещения объектов
+          const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+          const reticleMaterial = new THREE.MeshBasicMaterial();
+          const reticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
+          reticle.matrixAutoUpdate = false;
+          reticle.visible = false;
+          scene.add(reticle);
+          
+          // Максимальное количество объектов для демо-пользователя
+          const MAX_DEMO_OBJECTS = 3;
+          let placedObjectsCount = 0;
+          
+          // Обработка нажатий для размещения объектов
+          const controller = renderer.xr.getController(0);
+          controller.addEventListener('select', () => {
+            if (reticle.visible) {
+              // Проверяем ограничения для демо-пользователей
+              if (isDemoUser && placedObjectsCount >= MAX_DEMO_OBJECTS) {
+                // Показываем сообщение о превышении лимита
+                const existingNotice = document.querySelector('.demo-restrictions');
+                if (existingNotice) {
+                  existingNotice.textContent = 
+                    'Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
+                }
+                return;
+              }
+            
+              // Создаем выбранный объект
+              const modelSelect = document.getElementById('modelSelect') as HTMLSelectElement;
+              const selectedModel = modelSelect ? modelSelect.value : 'cube';
+              
+              let geometry;
+              if (selectedModel === 'cube') {
+                geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+              } else if (selectedModel === 'sphere') {
+                geometry = new THREE.SphereGeometry(0.15, 32, 32);
+              } else {
+                // Подсолнух (упрощенно)
+                geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+              }
+              
+              const material = new THREE.MeshStandardMaterial({
+                color: selectedModel === 'sunflower' ? 0xFFD700 : 0x1E90FF
+              });
+              
+              const mesh = new THREE.Mesh(geometry, material);
+              mesh.position.setFromMatrixPosition(reticle.matrix);
+              scene.add(mesh);
+              
+              placedObjectsCount++;
+            }
+          });
+          
+          // Функция для обновления положения указателя
+          const onXRFrame = (time: number, frame: XRFrame) => {
+            if (!frame) return session.requestAnimationFrame(onXRFrame);
+            
+            const hitTestResults = frame.getHitTestResults(hitTestSource);
+            
+            if (hitTestResults.length) {
+              const hit = hitTestResults[0];
+              const referenceSpace = renderer.xr.getReferenceSpace();
+               
+              if (referenceSpace) {
+                const pose = hit.getPose(referenceSpace);
+                
+                if (pose) {
+                  reticle.visible = true;
+                  reticle.matrix.fromArray(pose.transform.matrix);
+                }
+              }
+            } else {
+              reticle.visible = false;
+            }
+            
+            renderer.render(scene, camera);
+            session.requestAnimationFrame(onXRFrame);
+          };
+          
+          session.requestAnimationFrame(onXRFrame);
+        };
+        
+        // Устанавливаем обработчик для окончания сессии
         renderer.xr.addEventListener('sessionend', () => {
           console.log('AR session ended');
           setArActive(false);
-        });
-        
-        // Максимальное количество объектов для демо-пользователя
-        const MAX_DEMO_OBJECTS = 3;
-        let placedObjectsCount = 0;
-        
-        // Настройка контроллера для размещения объектов
-        renderer.xr.addEventListener('sessionstart', async () => {
-          const session = renderer.xr.getSession();
           
-          if (session) {
-            const viewerSpace = await session.requestReferenceSpace('viewer');
-            const hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace });
-             
-            if (!hitTestSource) {
-              console.error('Не удалось создать источник hit-test');
-              return;
-            }
-            
-            // Создаем указатель для размещения объектов
-            const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
-            const reticleMaterial = new THREE.MeshBasicMaterial();
-            const reticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
-            reticle.matrixAutoUpdate = false;
-            reticle.visible = false;
-            scene.add(reticle);
-            
-            // Обработка нажатий для размещения объектов
-            const controller = renderer.xr.getController(0);
-            controller.addEventListener('select', () => {
-              if (reticle.visible) {
-                // Проверяем ограничения для демо-пользователей
-                if (isDemoUser && placedObjectsCount >= MAX_DEMO_OBJECTS) {
-                  // Показываем сообщение о превышении лимита
-                  const existingNotice = document.querySelector('.demo-restrictions');
-                  if (existingNotice) {
-                    existingNotice.textContent = 
-                      'Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
-                  }
-                  return;
-                }
-              
-                // Создаем выбранный объект
-                const modelSelect = document.getElementById('modelSelect') as HTMLSelectElement;
-                const selectedModel = modelSelect ? modelSelect.value : 'cube';
-                
-                let geometry;
-                if (selectedModel === 'cube') {
-                  geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                } else if (selectedModel === 'sphere') {
-                  geometry = new THREE.SphereGeometry(0.15, 32, 32);
-                } else {
-                  // Подсолнух (упрощенно)
-                  geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
-                }
-                
-                const material = new THREE.MeshStandardMaterial({
-                  color: selectedModel === 'sunflower' ? 0xFFD700 : 0x1E90FF
-                });
-                
-                const mesh = new THREE.Mesh(geometry, material);
-                mesh.position.setFromMatrixPosition(reticle.matrix);
-                scene.add(mesh);
-                
-                placedObjectsCount++;
-              }
-            });
-            
-            // Функция для обновления положения указателя
-            session.requestAnimationFrame(function onXRFrame(time, frame) {
-              if (!frame) return session.requestAnimationFrame(onXRFrame);
-              
-              const hitTestResults = frame.getHitTestResults(hitTestSource);
-              
-              if (hitTestResults.length) {
-                const hit = hitTestResults[0];
-                const referenceSpace = renderer.xr.getReferenceSpace();
-                 
-                if (referenceSpace) {
-                  const pose = hit.getPose(referenceSpace);
-                  
-                  if (pose) {
-                    reticle.visible = true;
-                    reticle.matrix.fromArray(pose.transform.matrix);
-                  }
-                }
-              } else {
-                reticle.visible = false;
-              }
-              
-              renderer.render(scene, camera);
-              session.requestAnimationFrame(onXRFrame);
-            });
-          }
+          // Скрываем элементы управления AR
+          if (modelSelectContainer) modelSelectContainer.style.display = 'none';
+          if (stopArButton) stopArButton.style.display = 'none';
+          if (backButton) backButton.style.display = 'none';
+          
+          // Показываем меню бургера после завершения AR сессии
+          if (burgerButton) burgerButton.style.display = 'block';
         });
         
-        // Анимация
+        // Анимация для 3D карты (не AR режим)
         const animate = () => {
           renderer.setAnimationLoop((time, frame) => {
             if (!frame) {
@@ -389,26 +543,32 @@ function AR() {
           }
         }
         
-        // Добавляем обработчик для кнопки закрытия AR
-        const closeArButton = document.getElementById('closeArButton');
-        if (closeArButton) {
-          closeArButton.addEventListener('click', () => {
-            console.log('Trying to end AR session');
+        // Добавляем обработчик для кнопки "Назад"
+        const backButtonEl = document.getElementById('backButton');
+        if (backButtonEl) {
+          backButtonEl.addEventListener('click', () => {
+            if (renderer.xr.isPresenting) {
+              renderer.xr.getSession()?.end();
+            } else {
+              window.history.back();
+            }
+          });
+        }
+        
+        // Добавляем обработчик для кнопки остановки AR
+        const stopArButtonEl = document.getElementById('stopArButton');
+        if (stopArButtonEl) {
+          stopArButtonEl.addEventListener('click', () => {
             if (renderer.xr.isPresenting) {
               renderer.xr.getSession()?.end();
             }
           });
         }
         
-        // Добавляем обработчик для кнопки "Назад"
-        const backButtonEl = document.getElementById('backButton');
-        if (backButtonEl) {
-          backButtonEl.addEventListener('click', () => {
-            // Здесь можно добавить логику навигации назад
-            console.log('Back button pressed');
-            window.history.back();
-          });
-        }
+        // При начальной загрузке скрываем элементы управления AR
+        modelSelectContainer.style.display = 'none';
+        stopArButton.style.display = 'none';
+        backButton.style.display = 'block'; // Кнопка назад видна и в режиме карты
         
         return () => {
           // Очистка при размонтировании компонента
@@ -417,11 +577,16 @@ function AR() {
           if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
             mountRef.current.removeChild(renderer.domElement);
           }
-          if (xrButton && xrButton.parentNode) {
-            xrButton.parentNode.removeChild(xrButton);
-          }
+          
+          // Удаляем все созданные элементы
           if (uiContainer && uiContainer.parentNode) {
             uiContainer.parentNode.removeChild(uiContainer);
+          }
+          if (burgerButton && burgerButton.parentNode) {
+            burgerButton.parentNode.removeChild(burgerButton);
+          }
+          if (menuContainer && menuContainer.parentNode) {
+            menuContainer.parentNode.removeChild(menuContainer);
           }
           if (style && style.parentNode) {
             style.parentNode.removeChild(style);
@@ -433,7 +598,7 @@ function AR() {
     };
 
     loadScripts();
-  }, [isDemoUser, token]);
+  }, [isDemoUser, token, navigate]);
 
   return (
     <div 
