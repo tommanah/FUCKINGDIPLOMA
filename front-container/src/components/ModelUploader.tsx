@@ -13,7 +13,7 @@ const ModelUploader: React.FC = () => {
   const dispatch = useAppDispatch();
   
   const token = useAppSelector(state => state.auth.token);
-  const userModels = useAppSelector(state => state.auth.userModels);
+  const userModels = useAppSelector(state => state.auth.userModels || []);
   
   const isDemoUser = token === 'demo-token-no-permissions';
   const MAX_DEMO_MODELS = 3;
@@ -140,7 +140,7 @@ const ModelUploader: React.FC = () => {
         <div className="uploaded-models">
           <h4>Загруженные модели:</h4>
           <div className="models-list">
-            {userModels.map((model) => (
+            {userModels.map((model: UserModel) => (
               <div key={model.id} className="model-item">
                 <span className="model-name">{model.name}</span>
               </div>

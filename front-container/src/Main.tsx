@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { useAppSelector, useAppDispatch } from './store/hooks';
-import { setToken, setShowAR, isAuthorized, setUserModel } from './store/authSlice';
+import { setToken, setShowAR, isAuthorized, setUserModel, addUserModel } from './store/authSlice';
 import Authorization from './pages/authorization/Authorization';
 import Map from './pages/playground/Map';
 // @ts-ignore Игнорируем ошибку импорта .jsx файла
 import AR, { startARSession } from './pages/playground/AR.jsx';
+import { v4 as uuidv4 } from 'uuid';
 import './Main.css';
 
 // Токен для неавторизованного входа (demo-доступ)
@@ -64,10 +65,11 @@ function Main() {
       const blob = new Blob([contents]);
       const url = URL.createObjectURL(blob);
       
-      // Сохраняем URL модели в Redux store
-      dispatch(setUserModel({
+      // Сохраняем URL модели в Redux store с уникальным идентификатором
+      dispatch(addUserModel({
         name: file.name,
-        url: url
+        url: url,
+        id: uuidv4()
       }));
       
       // Удаляем индикатор загрузки

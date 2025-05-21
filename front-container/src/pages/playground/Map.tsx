@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { useAppSelector } from '../../store/hooks';
+import { UserModel } from '../../store/auth/authSlice';
 import './Map.css';
 import './notifications.css';
 
@@ -133,7 +134,7 @@ function Map() {
       // Создаем выпадающий список для выбора модели, если у нас есть несколько моделей
       let modelSelectHtml = '';
       if (userModels && userModels.length > 1) {
-        const options = userModels.map(model => 
+        const options = userModels.map((model: UserModel) => 
           `<option value="${model.id}" ${selectedModelId === model.id ? 'selected' : ''}>${model.name}</option>`
         ).join('');
         
@@ -204,7 +205,7 @@ function Map() {
           setSelectedModelId(selectedId);
           
           // Загружаем выбранную модель
-          const selectedModel = userModels.find(model => model.id === selectedId);
+          const selectedModel = userModels.find((model: UserModel) => model.id === selectedId);
           if (selectedModel) {
             loadUserModel(selectedModel.url, selectedModel);
           }
@@ -219,7 +220,7 @@ function Map() {
     const gltfLoader = new GLTFLoader();
 
     // Функция для загрузки модели
-    const loadUserModel = (url: string, modelData?: any) => {
+    const loadUserModel = (url: string, modelData?: UserModel) => {
       // Показываем индикатор загрузки
       const loadingNotification = document.createElement('div');
       loadingNotification.className = 'model-loading-notification';
