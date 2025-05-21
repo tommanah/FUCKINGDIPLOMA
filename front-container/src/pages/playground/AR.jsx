@@ -50,6 +50,56 @@ function AR() {
         uiContainer.className = 'ui-container';
         document.body.appendChild(uiContainer);
         
+        // Добавляем кнопку для вращения на главный экран
+        const mainRotateButton = document.createElement('button');
+        mainRotateButton.innerHTML = '�� ВРАЩАТЬ ОБЪЕКТЫ';
+        mainRotateButton.className = 'main-rotate-button';
+        mainRotateButton.style.cssText = `
+          position: fixed;
+          bottom: 80px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: #0099ff;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          padding: 15px 25px;
+          font-size: 18px;
+          margin: 10px;
+          cursor: pointer;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+          z-index: 999;
+        `;
+
+        mainRotateButton.addEventListener('click', () => {
+          alert('Кнопка вращения нажата!');
+          
+          // Запускаем AR если еще не запущен
+          if (!arActive) {
+            startARSession();
+            
+            // После запуска AR и загрузки сцены активируем режим вращения
+            setTimeout(() => {
+              const rotateBtn = document.getElementById('rotateButton');
+              if (rotateBtn) {
+                alert('Активирую режим вращения');
+                rotateBtn.click();
+              } else {
+                alert('Кнопка вращения не найдена в AR режиме');
+              }
+            }, 2000); // Даем время на загрузку AR
+          } else {
+            // Если AR уже запущен, просто активируем режим вращения
+            const rotateBtn = document.getElementById('rotateButton');
+            if (rotateBtn) {
+              rotateBtn.click();
+              alert('Режим вращения активирован');
+            }
+          }
+        });
+
+        document.body.appendChild(mainRotateButton);
+        
         // Добавляем кнопку бургер-меню
         const burgerMenuButton = document.createElement('button');
         burgerMenuButton.className = 'burger-menu-button';
@@ -327,6 +377,7 @@ function AR() {
         document.querySelectorAll('button').forEach(button => {
           if (button.textContent.includes('Включить AR')) {
             button.addEventListener('click', () => {
+              alert('Запускаем AR');
               startARSession();
             });
           }
@@ -373,12 +424,18 @@ function AR() {
         // Устанавливаем обработчики для отслеживания статуса AR сессии
         renderer.xr.addEventListener('sessionstart', () => {
           console.log('AR session started');
+          alert('AR сессия запущена');
           setArActive(true);
           
           // Скрываем кнопку ARButton и показываем элементы управления
           xrButton.style.display = 'none';
           modelSelectContainer.style.display = 'flex';
-        //   stopArButton.style.display = 'block';
+          
+          // Скрываем кнопку вращения на главном экране
+          const mainRotateBtn = document.querySelector('.main-rotate-button');
+          if (mainRotateBtn) {
+            mainRotateBtn.style.display = 'none';
+          }
           
           // Показываем бургер-меню в режиме AR
           const burgerMenuBtn = document.getElementById('burgerMenuButton');
@@ -518,7 +575,7 @@ function AR() {
           controller.addEventListener('select', (event) => {
             // Проверяем, не взаимодействует ли пользователь с UI
             if (interactingWithUI) {
-              console.log('Игнорируем событие контроллера, т.к. пользователь взаимодействует с UI');
+              alert('Игнорируем событие контроллера, т.к. пользователь взаимодействует с UI');
               return;
             }
             
@@ -632,6 +689,7 @@ function AR() {
           renderer.domElement.addEventListener('touchstart', (event) => {
             if (selectedObject && document.getElementById('rotateButton')?.classList.contains('active')) {
               isRotating = true;
+              alert('Начинаем вращение. Объект: ' + (selectedObject.name || 'без имени'));
               // Запоминаем начальную позицию касания
               rotationStartPosition.x = event.touches[0].clientX;
               rotationStartPosition.y = event.touches[0].clientY;
@@ -661,11 +719,19 @@ function AR() {
               
               // Предотвращаем прокрутку страницы при вращении объекта
               event.preventDefault();
+              
+              // Добавим дебаг информацию каждые 10 событий move
+              if (Math.random() < 0.05) { // ~5% случаев для уменьшения количества алертов
+                alert(`Вращение по оси ${rotationAxis}. DeltaX: ${deltaX.toFixed(2)}, DeltaY: ${deltaY.toFixed(2)}`);
+              }
             }
           }, { passive: false });
           
           renderer.domElement.addEventListener('touchend', (event) => {
-            isRotating = false;
+            if (isRotating) {
+              alert('Вращение завершено');
+              isRotating = false;
+            }
           });
           
           // Обновляем функцию onXRFrame для добавления автоматического выбора объекта
@@ -735,9 +801,10 @@ function AR() {
                   });
                 }
                 
+                alert(`Объект выбран: ${selectedObject.name || 'без имени'}`);
                 showNotification('Объект выбран. Проведите пальцем для вращения.');
               } else {
-                // Если объект не найден в центре, покажем подсказку
+                alert('Объекты не найдены в поле зрения');
                 showNotification('Наведите на объект и коснитесь его');
               }
             }
@@ -787,12 +854,18 @@ function AR() {
         // Устанавливаем обработчик для окончания сессии
         renderer.xr.addEventListener('sessionend', () => {
           console.log('AR session ended');
+          alert('AR сессия завершена');
           setArActive(false);
           
           // Показываем кнопку ARButton и скрываем элементы управления
           xrButton.style.display = 'block';
           modelSelectContainer.style.display = 'none';
-        //   stopArButton.style.display = 'none';
+          
+          // Показываем кнопку вращения на главном экране
+          const mainRotateBtn = document.querySelector('.main-rotate-button');
+          if (mainRotateBtn) {
+            mainRotateBtn.style.display = 'block';
+          }
           
           // Скрываем бургер-меню при выходе из AR
           const burgerMenuBtn = document.getElementById('burgerMenuButton');
