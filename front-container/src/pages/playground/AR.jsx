@@ -242,6 +242,16 @@ function AR() {
           demoNotice.style.display = 'block';
         }
         
+        // Загружаем модели GLTF
+        const gltfLoader = new GLTFLoader();
+        
+        // Сразу создаем объект для хранения моделей
+        const loadedModels = {
+          sunflower: null,
+          reticle: null,
+          userModel: null
+        };
+        
         // Добавляем селектор моделей
         const modelSelectContainer = document.createElement('div');
         modelSelectContainer.className = 'model-select';
@@ -329,11 +339,38 @@ function AR() {
         const fileInput = document.getElementById('fileInput');
 
         if (fileInput) {
-          fileInput.addEventListener('change', handleFile, false);
-          
-          function handleFile(event) {
+          console.log('Найден элемент выбора файла:', fileInput);
+          fileInput.addEventListener('change', function(event) {
+            console.log('Файл выбран, обрабатываем...');
             const file = event.target.files[0];
-            if (!file) return;
+            if (!file) {
+              console.log('Файл не выбран');
+              return;
+            }
+            
+            // Проверяем формат файла
+            const isValidFormat = file.name.toLowerCase().endsWith('.glb') || 
+                                file.name.toLowerCase().endsWith('.gltf');
+            if (!isValidFormat) {
+              alert('Пожалуйста, выберите файл формата .glb или .gltf');
+              return;
+            }
+            
+            console.log('Выбран файл:', file.name);
+            
+            // Показываем индикатор загрузки
+            const loadingNotification = document.createElement('div');
+            loadingNotification.style.position = 'fixed';
+            loadingNotification.style.bottom = '100px';
+            loadingNotification.style.left = '50%';
+            loadingNotification.style.transform = 'translateX(-50%)';
+            loadingNotification.style.background = 'rgba(0, 0, 0, 0.7)';
+            loadingNotification.style.color = 'white';
+            loadingNotification.style.padding = '10px 15px';
+            loadingNotification.style.borderRadius = '5px';
+            loadingNotification.style.zIndex = '99999';
+            loadingNotification.textContent = `Загрузка модели "${file.name}"...`;
+            document.body.appendChild(loadingNotification);
             
             interactingWithUI = true;
             setTimeout(() => {
@@ -343,54 +380,112 @@ function AR() {
             const reader = new FileReader();
             
             reader.onload = function(e) {
+              console.log('Файл прочитан, размер данных:', e.target.result.byteLength);
               const contents = e.target.result;
-              
-              // Определяем формат
-              const isBinary = file.name.toLowerCase().endsWith('.glb');
               
               // Создаем URL из массива
               const blob = new Blob([contents]);
               const url = URL.createObjectURL(blob);
               
+              console.log('Создан URL для модели:', url);
+              
+              // Добавляем модель в список с временным именем
+              modelSelect = document.getElementById('modelSelect');
+              let userModelOption = document.createElement('option');
+              userModelOption.value = 'userModel';
+              userModelOption.textContent = `Загрузка модели: ${file.name}...`;
+              modelSelect.appendChild(userModelOption);
+              modelSelect.value = 'userModel';
+              
               // Загружаем пользовательскую модель
-              gltfLoader.load(url, (gltf) => {
-                // Добавляем пользовательскую модель в список доступных
-                const userModel = gltf.scene;
-                loadedModels.userModel = userModel;
-                
-                // Автоматически выбираем пользовательскую модель
-                if (modelSelect) {
-                  // Проверяем, есть ли уже опция для пользовательской модели
-                  let userModelOption = document.querySelector('#modelSelect option[value="userModel"]');
+              console.log('Загружаем пользовательскую модель...');
+              gltfLoader.load(url, 
+                function(gltf) {
+                  console.log('Модель успешно загружена:', gltf);
                   
-                  // Если нет, создаем новую опцию
-                  if (!userModelOption) {
-                    userModelOption = document.createElement('option');
-                    userModelOption.value = 'userModel';
-                    userModelOption.textContent = `Модель: ${file.name}`;
-                    modelSelect.appendChild(userModelOption);
-                  } else {
-                    // Обновляем текст существующей опции
+                  // Удаляем индикатор загрузки
+                  if (loadingNotification.parentNode) {
+                    loadingNotification.parentNode.removeChild(loadingNotification);
+                  }
+                  
+                  // Сохраняем загруженную модель
+                  loadedModels.userModel = gltf.scene;
+                  
+                  // Обновляем опцию в селекторе
+                  if (userModelOption) {
                     userModelOption.textContent = `Модель: ${file.name}`;
                   }
                   
                   // Выбираем пользовательскую модель
-                  modelSelect.value = 'userModel';
-                  selectedModelType = 'userModel';
+                  if (modelSelect) {
+                    modelSelect.value = 'userModel';
+                    selectedModelType = 'userModel';
+                  }
+                  
+                  console.log('Пользовательская модель загружена и добавлена:', file.name);
+                  URL.revokeObjectURL(url);
+                  
+                  // Добавляем уведомление о успешной загрузке
+                  const notification = document.createElement('div');
+                  notification.style.position = 'fixed';
+                  notification.style.bottom = '100px';
+                  notification.style.left = '50%';
+                  notification.style.transform = 'translateX(-50%)';
+                  notification.style.background = 'rgba(37, 185, 85, 0.9)';
+                  notification.style.color = 'white';
+                  notification.style.padding = '10px 15px';
+                  notification.style.borderRadius = '5px';
+                  notification.style.zIndex = '99999';
+                  notification.textContent = `Модель "${file.name}" успешно загружена`;
+                  document.body.appendChild(notification);
+                  
+                  setTimeout(() => {
+                    if (notification.parentNode) {
+                      notification.parentNode.removeChild(notification);
+                    }
+                  }, 3000);
+                }, 
+                function(xhr) {
+                  console.log('Прогресс загрузки:', (xhr.loaded / xhr.total * 100) + '%');
+                  if (loadingNotification.parentNode) {
+                    const progress = Math.round(xhr.loaded / xhr.total * 100);
+                    loadingNotification.textContent = `Загрузка модели "${file.name}"... ${progress}%`;
+                  }
+                },
+                function(error) {
+                  console.error('Ошибка при загрузке модели:', error);
+                  
+                  // Удаляем индикатор загрузки
+                  if (loadingNotification.parentNode) {
+                    loadingNotification.parentNode.removeChild(loadingNotification);
+                  }
+                  
+                  alert('Ошибка при загрузке модели. Проверьте формат файла.');
+                  
+                  // Удаляем опцию, если произошла ошибка
+                  if (userModelOption && userModelOption.parentNode) {
+                    userModelOption.parentNode.removeChild(userModelOption);
+                  }
+                  
+                  URL.revokeObjectURL(url);
                 }
-                
-                console.log('Пользовательская модель загружена:', file.name);
-                URL.revokeObjectURL(url);
-              }, 
-              undefined, 
-              (error) => {
-                console.error('Ошибка при загрузке модели:', error);
-                alert('Ошибка при загрузке модели. Проверьте формат файла.');
-              });
+              );
             };
             
+            reader.onerror = function(e) {
+              console.error('Ошибка при чтении файла:', e);
+              
+              // Удаляем индикатор загрузки
+              if (loadingNotification.parentNode) {
+                loadingNotification.parentNode.removeChild(loadingNotification);
+              }
+              
+              alert('Ошибка при чтении файла.');
+            };
+            
+            console.log('Начинаем чтение файла как ArrayBuffer...');
             reader.readAsArrayBuffer(file);
-          }
+          });
         }
         
         if (modelSelect) {
@@ -438,9 +533,6 @@ function AR() {
           }
         }
         
-        // Загружаем модели GLTF
-        const gltfLoader = new GLTFLoader();
-        
         // Создаем статические модели вместо загрузки GLTF
         const createStaticModels = () => {
           console.log('Создаем статические модели вместо загрузки GLTF');
@@ -470,14 +562,15 @@ function AR() {
           });
           const reticleModel = new THREE.Mesh(reticleGeometry, reticleMaterial);
           
-          return {
-            sunflower: sunflowerModel,
-            reticle: reticleModel
-          };
+          // Обновляем наш объект loadedModels вместо создания нового
+          loadedModels.sunflower = sunflowerModel;
+          loadedModels.reticle = reticleModel;
+          
+          return loadedModels;
         };
         
         // Сразу создаем статичные модели для использования, пока загружаются GLTF
-        const loadedModels = createStaticModels();
+        createStaticModels();
         
         // Список всех возможных путей для попытки загрузки
         const possiblePaths = [
@@ -749,14 +842,16 @@ function AR() {
                 case 'userModel':
                   // Используем загруженную пользователем модель
                   if (loadedModels.userModel) {
+                    console.log('Размещаем пользовательскую модель');
+                    
+                    // Клонируем модель, чтобы можно было размещать несколько экземпляров
                     mesh = loadedModels.userModel.clone();
                     
                     // Масштабируем модель до разумного размера
                     mesh.scale.set(0.2, 0.2, 0.2);
-                    
-                    console.log('Использование пользовательской модели');
                   } else {
-                    // Если что-то пошло не так, используем куб
+                    console.warn('Пользовательская модель не найдена, используем запасной вариант');
+                    // Если что-то пошло не так, используем куб в качестве запасного варианта
                     const fallbackGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
                     const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
                     mesh = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
