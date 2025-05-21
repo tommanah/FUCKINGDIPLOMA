@@ -22,7 +22,7 @@ function Authorization({ onEnterWithoutRegistration }: AuthorizationProps) {
   const[password, setPassword] = useState('');
   const[error, setError] = useState('');
 
-  const API_URL = 'http://localhost:3001';
+  const API_URL = 'http://154.194.52.253:3001';
 
   async function handleLogin(e: React.FormEvent){
     e.preventDefault();

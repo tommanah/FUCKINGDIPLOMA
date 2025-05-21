@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useAppSelector } from '../../store/hooks';
 
@@ -6,20 +6,21 @@ function AR() {
   const mountRef = useRef<HTMLDivElement>(null);
   const token = useAppSelector(state => state.auth.token);
   const isDemoUser = token === 'demo-token-no-permissions';
+  const [arActive, setArActive] = useState(false);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     // Загружаем скрипты для AR
     const loadScripts = async () => {
-      // Добавляем стили для AR
+      // Создаем и добавляем стили для AR
       const style = document.createElement('style');
       style.textContent = `
         .model-select {
           position: fixed;
           top: 60px;
           left: 10px;
-          z-index: 2000;
+          z-index: 9000;
           background: rgba(0, 0, 0, 0.7);
           padding: 15px;
           border-radius: 10px;
@@ -71,7 +72,7 @@ function AR() {
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 1000;
+            z-index: 9000;
         }
         
         .ui-container > * {
@@ -109,39 +110,62 @@ function AR() {
             text-align: center;
             max-width: 90%;
         }
+        
+        .ar-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 200;
+        }
+        
+        .ar-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 99999;
+            pointer-events: auto;
+        }
+        
+        .ar-header .title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .close-ar-button {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .back-button {
+            position: fixed;
+            top: 70px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 99999;
+        }
       `;
       document.head.appendChild(style);
-
-      // Загружаем необходимые скрипты для AR
-      // Создаем элементы для AR
-      const uiContainer = document.createElement('div');
-      uiContainer.className = 'ui-container';
-      
-      // Если демо-пользователь, показываем ограниченную функциональность
-      if (isDemoUser) {
-        const demoNotice = document.createElement('div');
-        demoNotice.className = 'demo-restrictions';
-        demoNotice.textContent = 'Демо-режим: Ограниченная функциональность. Для полного доступа зарегистрируйтесь.';
-        uiContainer.appendChild(demoNotice);
-      }
-      
-      uiContainer.innerHTML += `
-        <div class="model-select">
-            <select id="modelSelect">
-                <option value="sunflower">Подсолнух</option>
-                <option value="cube">Куб</option>
-                <option value="sphere">Сфера</option>
-            </select>
-            <div class="buttons-container">
-                <button id="placementButton" class="active">📦 Разместить</button>
-                <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
-            </div>
-        </div>
-      `;
-       
-      if (mountRef.current) {
-        mountRef.current.appendChild(uiContainer);
-      }
 
       try {
         // Инициализация AR с использованием Three.js и WebXR
@@ -160,6 +184,52 @@ function AR() {
           mountRef.current.appendChild(renderer.domElement);
         }
         
+        // Создаем домашний оверлей перед созданием AR сессии
+        // Это важно, так как domOverlay должен существовать до запуска XR сессии
+        const uiContainer = document.createElement('div');
+        uiContainer.className = 'ui-container';
+        document.body.appendChild(uiContainer);
+        
+        // Добавляем верхнюю панель с кнопкой закрытия
+        const arHeader = document.createElement('div');
+        arHeader.className = 'ar-header';
+        arHeader.innerHTML = `
+          <div class="title">AR Режим</div>
+          <button class="close-ar-button" id="closeArButton">Закрыть AR</button>
+        `;
+        uiContainer.appendChild(arHeader);
+        
+        // Добавляем кнопку "Назад"
+        const backButton = document.createElement('button');
+        backButton.className = 'back-button';
+        backButton.id = 'backButton';
+        backButton.textContent = '← Назад';
+        uiContainer.appendChild(backButton);
+        
+        // Добавляем селектор моделей
+        const modelSelectContainer = document.createElement('div');
+        modelSelectContainer.className = 'model-select';
+        modelSelectContainer.innerHTML = `
+          <select id="modelSelect">
+              <option value="sunflower">Подсолнух</option>
+              <option value="cube">Куб</option>
+              <option value="sphere">Сфера</option>
+          </select>
+          <div class="buttons-container">
+              <button id="placementButton" class="active">📦 Разместить</button>
+              <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+          </div>
+        `;
+        uiContainer.appendChild(modelSelectContainer);
+        
+        // Если демо-пользователь, показываем ограниченную функциональность
+        if (isDemoUser) {
+          const demoNotice = document.createElement('div');
+          demoNotice.className = 'demo-restrictions';
+          demoNotice.textContent = 'Демо-режим: Ограниченная функциональность. Для полного доступа зарегистрируйтесь.';
+          uiContainer.appendChild(demoNotice);
+        }
+        
         // Добавляем свет
         const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
         light.position.set(0.5, 1, 0.25);
@@ -169,9 +239,25 @@ function AR() {
         const xrButton = ARButton.createButton(renderer, {
           requiredFeatures: ['hit-test'],
           optionalFeatures: ['dom-overlay'],
-          domOverlay: { root: uiContainer }
+          domOverlay: { root: document.body }  // Используем body как root для overlay
         });
         document.body.appendChild(xrButton);
+        
+        // Устанавливаем обработчики для отслеживания статуса AR сессии
+        renderer.xr.addEventListener('sessionstart', () => {
+          console.log('AR session started');
+          setArActive(true);
+          
+          // Убедимся, что UI элементы видны в AR режиме
+          arHeader.style.display = 'flex';
+          backButton.style.display = 'block';
+          modelSelectContainer.style.display = 'flex';
+        });
+        
+        renderer.xr.addEventListener('sessionend', () => {
+          console.log('AR session ended');
+          setArActive(false);
+        });
         
         // Максимальное количество объектов для демо-пользователя
         const MAX_DEMO_OBJECTS = 3;
@@ -303,17 +389,43 @@ function AR() {
           }
         }
         
+        // Добавляем обработчик для кнопки закрытия AR
+        const closeArButton = document.getElementById('closeArButton');
+        if (closeArButton) {
+          closeArButton.addEventListener('click', () => {
+            console.log('Trying to end AR session');
+            if (renderer.xr.isPresenting) {
+              renderer.xr.getSession()?.end();
+            }
+          });
+        }
+        
+        // Добавляем обработчик для кнопки "Назад"
+        const backButtonEl = document.getElementById('backButton');
+        if (backButtonEl) {
+          backButtonEl.addEventListener('click', () => {
+            // Здесь можно добавить логику навигации назад
+            console.log('Back button pressed');
+            window.history.back();
+          });
+        }
+        
         return () => {
           // Очистка при размонтировании компонента
           window.removeEventListener('resize', handleResize);
           renderer.setAnimationLoop(null);
-          if (mountRef.current) {
+          if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
             mountRef.current.removeChild(renderer.domElement);
           }
-          if (xrButton) {
-            document.body.removeChild(xrButton);
+          if (xrButton && xrButton.parentNode) {
+            xrButton.parentNode.removeChild(xrButton);
           }
-          document.head.removeChild(style);
+          if (uiContainer && uiContainer.parentNode) {
+            uiContainer.parentNode.removeChild(uiContainer);
+          }
+          if (style && style.parentNode) {
+            style.parentNode.removeChild(style);
+          }
         };
       } catch (error) {
         console.error('Ошибка при инициализации AR:', error);
@@ -326,14 +438,7 @@ function AR() {
   return (
     <div 
       ref={mountRef} 
-      style={{ 
-        width: '100%', 
-        height: '100vh',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 200
-      }} 
+      className="ar-container" 
     />
   );
 }
