@@ -3,52 +3,8 @@ import * as THREE from 'three';
 import { useAppSelector } from '../../store/hooks';
 import { useNavigate } from 'react-router-dom';
 
-// Добавляем интерфейс для navigator.xr
-interface XRSystem {
-  isSessionSupported(mode: string): Promise<boolean>;
-  requestSession(mode: string, options?: any): Promise<XRSession>;
-}
-
-interface XRSession {
-  requestReferenceSpace(type: string): Promise<XRReferenceSpace>;
-  requestHitTestSource(options: any): Promise<XRHitTestSource>;
-  requestAnimationFrame(callback: XRFrameRequestCallback): number;
-  end(): Promise<void>;
-}
-
-interface XRReferenceSpace {
-  // Базовые свойства XRReferenceSpace
-}
-
-interface XRHitTestSource {
-  // Базовые свойства XRHitTestSource
-}
-
-interface XRFrame {
-  getHitTestResults(hitTestSource: XRHitTestSource): Array<XRHitTestResult>;
-}
-
-interface XRHitTestResult {
-  getPose(referenceSpace: XRReferenceSpace): XRPose | undefined;
-}
-
-interface XRPose {
-  transform: {
-    matrix: Float32Array;
-  };
-}
-
-type XRFrameRequestCallback = (time: number, frame: XRFrame) => void;
-
-// Расширяем глобальный интерфейс Navigator
-declare global {
-  interface Navigator {
-    xr?: XRSystem;
-  }
-}
-
 function AR() {
-  const mountRef = useRef<HTMLDivElement>(null);
+  const mountRef = useRef(null);
   const token = useAppSelector(state => state.auth.token);
   const isDemoUser = token === 'demo-token-no-permissions';
   const [arActive, setArActive] = useState(false);
@@ -383,7 +339,7 @@ function AR() {
         };
         
         // Функция обработки начала сессии
-        const onSessionStarted = (session: XRSession) => {
+        const onSessionStarted = (session) => {
           renderer.xr.setReferenceSpaceType('local');
           renderer.xr.setSession(session);
           
@@ -402,7 +358,7 @@ function AR() {
         };
         
         // Настройка hit-test
-        const setupHitTest = async (session: XRSession) => {
+        const setupHitTest = async (session) => {
           const viewerSpace = await session.requestReferenceSpace('viewer');
           const hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace });
            
@@ -439,7 +395,7 @@ function AR() {
               }
             
               // Создаем выбранный объект
-              const modelSelect = document.getElementById('modelSelect') as HTMLSelectElement;
+              const modelSelect = document.getElementById('modelSelect');
               const selectedModel = modelSelect ? modelSelect.value : 'cube';
               
               let geometry;
@@ -465,7 +421,7 @@ function AR() {
           });
           
           // Функция для обновления положения указателя
-          const onXRFrame = (time: number, frame: XRFrame) => {
+          const onXRFrame = (time, frame) => {
             if (!frame) return session.requestAnimationFrame(onXRFrame);
             
             const hitTestResults = frame.getHitTestResults(hitTestSource);
