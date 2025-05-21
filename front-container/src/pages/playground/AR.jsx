@@ -50,56 +50,6 @@ function AR() {
         uiContainer.className = 'ui-container';
         document.body.appendChild(uiContainer);
         
-        // Добавляем кнопку для вращения на главный экран
-        const mainRotateButton = document.createElement('button');
-        mainRotateButton.innerHTML = '�� ВРАЩАТЬ ОБЪЕКТЫ';
-        mainRotateButton.className = 'main-rotate-button';
-        mainRotateButton.style.cssText = `
-          position: fixed;
-          bottom: 80px;
-          left: 50%;
-          transform: translateX(-50%);
-          background-color: #0099ff;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          padding: 15px 25px;
-          font-size: 18px;
-          margin: 10px;
-          cursor: pointer;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-          z-index: 999;
-        `;
-
-        mainRotateButton.addEventListener('click', () => {
-          alert('Кнопка вращения нажата!');
-          
-          // Запускаем AR если еще не запущен
-          if (!arActive) {
-            startARSession();
-            
-            // После запуска AR и загрузки сцены активируем режим вращения
-            setTimeout(() => {
-              const rotateBtn = document.getElementById('rotateButton');
-              if (rotateBtn) {
-                alert('Активирую режим вращения');
-                rotateBtn.click();
-              } else {
-                alert('Кнопка вращения не найдена в AR режиме');
-              }
-            }, 2000); // Даем время на загрузку AR
-          } else {
-            // Если AR уже запущен, просто активируем режим вращения
-            const rotateBtn = document.getElementById('rotateButton');
-            if (rotateBtn) {
-              rotateBtn.click();
-              alert('Режим вращения активирован');
-            }
-          }
-        });
-
-        document.body.appendChild(mainRotateButton);
-        
         // Добавляем кнопку бургер-меню
         const burgerMenuButton = document.createElement('button');
         burgerMenuButton.className = 'burger-menu-button';
@@ -377,7 +327,6 @@ function AR() {
         document.querySelectorAll('button').forEach(button => {
           if (button.textContent.includes('Включить AR')) {
             button.addEventListener('click', () => {
-              alert('Запускаем AR');
               startARSession();
             });
           }
@@ -424,18 +373,12 @@ function AR() {
         // Устанавливаем обработчики для отслеживания статуса AR сессии
         renderer.xr.addEventListener('sessionstart', () => {
           console.log('AR session started');
-          alert('AR сессия запущена');
           setArActive(true);
           
           // Скрываем кнопку ARButton и показываем элементы управления
           xrButton.style.display = 'none';
           modelSelectContainer.style.display = 'flex';
-          
-          // Скрываем кнопку вращения на главном экране
-          const mainRotateBtn = document.querySelector('.main-rotate-button');
-          if (mainRotateBtn) {
-            mainRotateBtn.style.display = 'none';
-          }
+        //   stopArButton.style.display = 'block';
           
           // Показываем бургер-меню в режиме AR
           const burgerMenuBtn = document.getElementById('burgerMenuButton');
@@ -464,45 +407,124 @@ function AR() {
         let rotationStartPosition = { x: 0, y: 0 };
         let rotationAxis = 'y'; // по умолчанию вращаем вокруг оси Y
         
-        // Функция для отображения уведомлений
-        const showNotification = (message, duration = 2000) => {
-          const notification = document.createElement('div');
-          notification.className = 'ar-notification';
-          notification.textContent = message;
-          document.body.appendChild(notification);
+        // Добавим переменные для выделения объектов
+        let originalMaterials = new Map();
+        let highlightedObject = null;
+        
+        // Функция для выделения объекта
+        const highlightObject = (object) => {
+          if (!object) return;
           
-          setTimeout(() => {
-            notification.classList.add('fade-out');
-            setTimeout(() => {
-              if (notification.parentNode) {
-                notification.parentNode.removeChild(notification);
+          // Если есть предыдущий выделенный объект, возвращаем его оригинальный материал
+          if (highlightedObject && highlightedObject !== object) {
+            unhighlightObject(highlightedObject);
+          }
+          
+          // Сохраняем текущее состояние объекта
+          if (!originalMaterials.has(object.id)) {
+            // Сохраняем все материалы объекта, если это группа
+            if (object.type === 'Group') {
+              const objectMaterials = new Map();
+              object.traverse((child) => {
+                if (child.isMesh && child.material) {
+                  objectMaterials.set(child.id, child.material.clone());
+                }
+              });
+              originalMaterials.set(object.id, objectMaterials);
+              
+              // Применяем выделение ко всем мешам в группе
+              object.traverse((child) => {
+                if (child.isMesh) {
+                  const highlightMaterial = child.material.clone();
+                  highlightMaterial.emissive = new THREE.Color(0x3333ff);
+                  highlightMaterial.emissiveIntensity = 0.5;
+                  highlightMaterial.transparent = true;
+                  highlightMaterial.opacity = 0.9;
+                  child.material = highlightMaterial;
+                }
+              });
+            } else {
+              // Для одиночного меша
+              originalMaterials.set(object.id, object.material.clone());
+              
+              // Создаем материал подсветки
+              const highlightMaterial = object.material.clone();
+              highlightMaterial.emissive = new THREE.Color(0x3333ff);
+              highlightMaterial.emissiveIntensity = 0.5;
+              highlightMaterial.transparent = true;
+              highlightMaterial.opacity = 0.9;
+              object.material = highlightMaterial;
+            }
+          }
+          
+          // Добавляем анимацию пульсации
+          if (!object.userData.pulseAnimation) {
+            const initialScale = object.scale.clone();
+            const targetScale = initialScale.clone().multiplyScalar(1.1);
+            
+            let direction = 1;
+            let factor = 0;
+            
+            object.userData.pulseAnimation = setInterval(() => {
+              factor += direction * 0.05;
+              
+              if (factor >= 1) {
+                factor = 1;
+                direction = -1;
+              } else if (factor <= 0) {
+                factor = 0;
+                direction = 1;
               }
-            }, 500);
-          }, duration);
+              
+              const scaleX = initialScale.x + (targetScale.x - initialScale.x) * factor;
+              const scaleY = initialScale.y + (targetScale.y - initialScale.y) * factor;
+              const scaleZ = initialScale.z + (targetScale.z - initialScale.z) * factor;
+              
+              object.scale.set(scaleX, scaleY, scaleZ);
+            }, 50);
+          }
+          
+          highlightedObject = object;
         };
 
-        // Добавляем стили для уведомлений
-        const notificationStyle = document.createElement('style');
-        notificationStyle.innerHTML = `
-          .ar-notification {
-            position: fixed;
-            bottom: 20%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 16px;
-            z-index: 1000;
-            transition: opacity 0.5s;
-            pointer-events: none;
+        // Функция для отмены выделения объекта
+        const unhighlightObject = (object) => {
+          if (!object) return;
+          
+          // Останавливаем анимацию пульсации
+          if (object.userData.pulseAnimation) {
+            clearInterval(object.userData.pulseAnimation);
+            delete object.userData.pulseAnimation;
           }
-          .fade-out {
-            opacity: 0;
+          
+          // Возвращаем оригинальные размеры
+          if (object.userData.originalScale) {
+            object.scale.copy(object.userData.originalScale);
           }
-        `;
-        document.head.appendChild(notificationStyle);
+          
+          // Возвращаем оригинальные материалы
+          if (originalMaterials.has(object.id)) {
+            const materials = originalMaterials.get(object.id);
+            
+            if (materials instanceof Map) {
+              // Для группы объектов
+              object.traverse((child) => {
+                if (child.isMesh && materials.has(child.id)) {
+                  child.material = materials.get(child.id);
+                }
+              });
+            } else {
+              // Для одиночного меша
+              object.material = materials;
+            }
+            
+            originalMaterials.delete(object.id);
+          }
+          
+          if (highlightedObject === object) {
+            highlightedObject = null;
+          }
+        };
         
         // Функция для обработки обнаруженных плоскостей
         const handlePlaneDetected = (plane) => {
@@ -575,7 +597,7 @@ function AR() {
           controller.addEventListener('select', (event) => {
             // Проверяем, не взаимодействует ли пользователь с UI
             if (interactingWithUI) {
-              alert('Игнорируем событие контроллера, т.к. пользователь взаимодействует с UI');
+              console.log('Игнорируем событие контроллера, т.к. пользователь взаимодействует с UI');
               return;
             }
             
@@ -586,7 +608,7 @@ function AR() {
             // Режим размещения объектов
             if (placementButton && placementButton.classList.contains('active') && reticle.visible) {
               // Проверяем ограничения для демо-пользователей
-              if (isDemoUser && placedObjectsCount >= MAX_DEMO_OBJECTS) {                
+              if (isDemoUser && placedObjects.length >= MAX_DEMO_OBJECTS) {                
                     alert('Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.');
                 return;
               }
@@ -639,6 +661,18 @@ function AR() {
               scene.add(mesh);
               placedObjects.push(mesh);
               placedObjectsCount++;
+              
+              // Выбираем новый объект и подсвечиваем его
+              if (selectedObject) {
+                unhighlightObject(selectedObject);
+              }
+              selectedObject = mesh;
+              
+              // Сохраняем оригинальный масштаб для использования в анимации
+              selectedObject.userData.originalScale = selectedObject.scale.clone();
+              
+              // Подсвечиваем новый объект
+              highlightObject(selectedObject);
             } 
             // Режим редактирования или вращения - выбор объекта
             else if ((editButton && editButton.classList.contains('active') && !isDemoUser) || 
@@ -654,31 +688,37 @@ function AR() {
               const intersects = raycaster.intersectObjects(placedObjects, true);
               
               if (intersects.length > 0) {
-                // Если что-то выбрали
-                const selected = intersects[0].object;
+                // Находим родительский объект в списке размещенных объектов
+                let selected = intersects[0].object;
+                let parent = selected;
                 
-                // Если ранее был выбранный объект, убираем подсветку
-                if (selectedObject) {
-                  // Восстанавливаем оригинальный материал
-                  if (selectedObject.material && selectedObject.material.originalColor) {
-                    selectedObject.material.color.setHex(selectedObject.material.originalColor);
-                  }
+                // Поднимаемся по иерархии, пока не найдем корневой объект из списка placedObjects
+                while (parent.parent && !placedObjects.includes(parent)) {
+                  parent = parent.parent;
                 }
                 
-                // Выбираем новый объект
-                selectedObject = selected;
+                // Если нашли корневой объект в placedObjects, используем его
+                if (placedObjects.includes(parent)) {
+                  selected = parent;
+                }
                 
-                // Запоминаем оригинальный цвет и подсвечиваем
-                if (selectedObject.material) {
-                  selectedObject.material.originalColor = selectedObject.material.color.getHex();
-                  selectedObject.material.color.setHex(0xff0000); // Красная подсветка
+                // Если ранее был выбран другой объект, снимаем выделение
+                if (selectedObject && selectedObject !== selected) {
+                  unhighlightObject(selectedObject);
+                }
+                
+                // Выбираем новый объект и подсвечиваем его
+                selectedObject = selected;
+                highlightObject(selectedObject);
+                
+                // Сохраняем оригинальный масштаб для использования в анимации
+                if (!selectedObject.userData.originalScale) {
+                  selectedObject.userData.originalScale = selectedObject.scale.clone();
                 }
               } else {
                 // Если клик по пустому месту, снимаем выделение
                 if (selectedObject) {
-                  if (selectedObject.material && selectedObject.material.originalColor) {
-                    selectedObject.material.color.setHex(selectedObject.material.originalColor);
-                  }
+                  unhighlightObject(selectedObject);
                   selectedObject = null;
                 }
               }
@@ -689,7 +729,6 @@ function AR() {
           renderer.domElement.addEventListener('touchstart', (event) => {
             if (selectedObject && document.getElementById('rotateButton')?.classList.contains('active')) {
               isRotating = true;
-              alert('Начинаем вращение. Объект: ' + (selectedObject.name || 'без имени'));
               // Запоминаем начальную позицию касания
               rotationStartPosition.x = event.touches[0].clientX;
               rotationStartPosition.y = event.touches[0].clientY;
@@ -719,22 +758,14 @@ function AR() {
               
               // Предотвращаем прокрутку страницы при вращении объекта
               event.preventDefault();
-              
-              // Добавим дебаг информацию каждые 10 событий move
-              if (Math.random() < 0.05) { // ~5% случаев для уменьшения количества алертов
-                alert(`Вращение по оси ${rotationAxis}. DeltaX: ${deltaX.toFixed(2)}, DeltaY: ${deltaY.toFixed(2)}`);
-              }
             }
           }, { passive: false });
           
           renderer.domElement.addEventListener('touchend', (event) => {
-            if (isRotating) {
-              alert('Вращение завершено');
-              isRotating = false;
-            }
+            isRotating = false;
           });
           
-          // Обновляем функцию onXRFrame для добавления автоматического выбора объекта
+          // Функция для обновления положения указателя
           const onXRFrame = (time, frame) => {
             if (!frame) return session.requestAnimationFrame(onXRFrame);
             
@@ -761,52 +792,6 @@ function AR() {
               }
             } else {
               reticle.visible = false;
-            }
-            
-            // Автоматический выбор объекта в режиме вращения, если нет выбранного объекта
-            const rotateButton = document.getElementById('rotateButton');
-            if (rotateButton && rotateButton.classList.contains('active') && !selectedObject && placedObjects.length > 0) {
-              // Используем raycaster для выбора объекта в центре экрана
-              const raycaster = new THREE.Raycaster();
-              const center = new THREE.Vector2(0, 0); // Центр экрана
-              
-              // Получаем камеру из XR сессии
-              const camera = renderer.xr.getCamera();
-              raycaster.setFromCamera(center, camera);
-              
-              // Находим пересечения с размещенными объектами
-              const intersects = raycaster.intersectObjects(placedObjects, true);
-              
-              if (intersects.length > 0) {
-                // Находим корневой объект, который добавлен в placedObjects
-                let rootObject = intersects[0].object;
-                while (rootObject.parent && !placedObjects.includes(rootObject)) {
-                  rootObject = rootObject.parent;
-                }
-                
-                // Выбираем объект
-                selectedObject = rootObject;
-                
-                // Подсветка выбранного объекта
-                if (selectedObject.material) {
-                  selectedObject.material.originalColor = selectedObject.material.color.getHex();
-                  selectedObject.material.color.setHex(0xff0000);
-                } else if (selectedObject.children && selectedObject.children.length > 0) {
-                  // Если у объекта нет материала, но есть дочерние объекты с материалами
-                  selectedObject.children.forEach(child => {
-                    if (child.material) {
-                      child.material.originalColor = child.material.color.getHex();
-                      child.material.color.setHex(0xff0000);
-                    }
-                  });
-                }
-                
-                alert(`Объект выбран: ${selectedObject.name || 'без имени'}`);
-                showNotification('Объект выбран. Проведите пальцем для вращения.');
-              } else {
-                alert('Объекты не найдены в поле зрения');
-                showNotification('Наведите на объект и коснитесь его');
-              }
             }
             
             // Обновляем визуализацию плоскостей, если включено
@@ -854,18 +839,18 @@ function AR() {
         // Устанавливаем обработчик для окончания сессии
         renderer.xr.addEventListener('sessionend', () => {
           console.log('AR session ended');
-          alert('AR сессия завершена');
           setArActive(false);
+          
+          // Очищаем выделение объектов
+          if (selectedObject) {
+            unhighlightObject(selectedObject);
+          }
+          selectedObject = null;
           
           // Показываем кнопку ARButton и скрываем элементы управления
           xrButton.style.display = 'block';
           modelSelectContainer.style.display = 'none';
-          
-          // Показываем кнопку вращения на главном экране
-          const mainRotateBtn = document.querySelector('.main-rotate-button');
-          if (mainRotateBtn) {
-            mainRotateBtn.style.display = 'block';
-          }
+        //   stopArButton.style.display = 'none';
           
           // Скрываем бургер-меню при выходе из AR
           const burgerMenuBtn = document.getElementById('burgerMenuButton');
@@ -898,8 +883,17 @@ function AR() {
           isRotating = false;
           
           // Очищаем сцену от размещенных объектов
-          placedObjects.forEach(obj => scene.remove(obj));
+          placedObjects.forEach(obj => {
+            // Очищаем анимации и интервалы
+            if (obj.userData.pulseAnimation) {
+              clearInterval(obj.userData.pulseAnimation);
+            }
+            scene.remove(obj);
+          });
           placedObjects.length = 0;
+          
+          // Очищаем сохраненные материалы
+          originalMaterials.clear();
         });
         
         // Анимация для 3D карты (не AR режим)
@@ -939,9 +933,7 @@ function AR() {
             
             // Сбрасываем выбор объекта при переключении в режим размещения
             if (selectedObject) {
-              if (selectedObject.material && selectedObject.material.originalColor) {
-                selectedObject.material.color.setHex(selectedObject.material.originalColor);
-              }
+              unhighlightObject(selectedObject);
               selectedObject = null;
             }
           });
@@ -964,23 +956,6 @@ function AR() {
               rotateButton.classList.add('active');
               placementButton.classList.remove('active');
               if (!isDemoUser) editButton.classList.remove('active');
-              
-              // Очищаем выбранный объект при переключении в режим вращения
-              if (selectedObject) {
-                if (selectedObject.material && selectedObject.material.originalColor) {
-                  selectedObject.material.color.setHex(selectedObject.material.originalColor);
-                } else if (selectedObject.children) {
-                  selectedObject.children.forEach(child => {
-                    if (child.material && child.material.originalColor) {
-                      child.material.color.setHex(child.material.originalColor);
-                    }
-                  });
-                }
-                selectedObject = null;
-              }
-              
-              // Показываем подсказку
-              showNotification('Режим вращения. Выберите объект или наведите на него');
               
               // Создаем элементы UI для выбора оси вращения, если их еще нет
               let axisSelector = document.getElementById('axisSelector');
