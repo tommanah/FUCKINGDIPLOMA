@@ -87,24 +87,7 @@ function Main() {
             <button className="mode-button" onClick={handleExitAR}>3D Карта</button>
             <button className="mode-button active">Доп. реальность</button>
           </div>
-          <button
-            onClick={handleExitAR}
-            style={{
-              position: 'fixed',
-              top: '20px',
-              left: '20px',
-              padding: '8px 16px',
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              zIndex: 10000
-            }}
-          >
-            Вернуться к карте
-          </button>
+          
         </div>
       )}
     </div>

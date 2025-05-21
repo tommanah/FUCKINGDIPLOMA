@@ -258,22 +258,7 @@ function AR() {
           </div>
         `;
         uiContainer.appendChild(modelSelectContainer);
-        
-        // Добавляем кнопку показа плоскостей
-        const showPlanesButton = document.createElement('button');
-        showPlanesButton.className = 'show-planes-button';
-        showPlanesButton.id = 'showPlanesButton';
-        showPlanesButton.textContent = '🔍 Плоскости';
-        uiContainer.appendChild(showPlanesButton);
-        
-        // Добавляем кнопку остановки AR
-        const stopArButton = document.createElement('button');
-        stopArButton.className = 'stop-ar-button';
-        stopArButton.id = 'stopArButton';
-        stopArButton.textContent = 'Остановить AR';
-        stopArButton.style.display = 'none';
-        uiContainer.appendChild(stopArButton);
-        
+
         // Добавляем свет
         const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
         light.position.set(0.5, 1, 0.25);
@@ -338,7 +323,7 @@ function AR() {
         });
         xrButton.textContent = 'WebXR Start AR';
         xrButton.id = 'ARButton'; // Устанавливаем ID для программного доступа
-        document.body.appendChild(xrButton);
+        // document.body.appendChild(xrButton);
         
         // Функция для программного запуска AR сессии
         const startARSession = () => {
@@ -408,7 +393,7 @@ function AR() {
           // Скрываем кнопку ARButton и показываем элементы управления
           xrButton.style.display = 'none';
           modelSelectContainer.style.display = 'flex';
-          stopArButton.style.display = 'block';
+        //   stopArButton.style.display = 'block';
           
           // Показываем бургер-меню в режиме AR
           const burgerMenuBtn = document.getElementById('burgerMenuButton');
@@ -693,7 +678,7 @@ function AR() {
           // Показываем кнопку ARButton и скрываем элементы управления
           xrButton.style.display = 'block';
           modelSelectContainer.style.display = 'none';
-          stopArButton.style.display = 'none';
+        //   stopArButton.style.display = 'none';
           
           // Скрываем бургер-меню при выходе из AR
           const burgerMenuBtn = document.getElementById('burgerMenuButton');
