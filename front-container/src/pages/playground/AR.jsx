@@ -79,6 +79,23 @@ function AR() {
             pointer-events: auto;
         }
         
+        #ARButton {
+            position: fixed !important;
+            bottom: 20px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            padding: 12px 24px !important;
+            border: 1px solid #fff !important;
+            border-radius: 4px !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            color: #fff !important;
+            font: 13px sans-serif !important;
+            text-align: center !important;
+            outline: none !important;
+            z-index: 999999 !important;
+            cursor: pointer !important;
+        }
+        
         .demo-restrictions {
             position: fixed;
             bottom: 70px;
@@ -117,70 +134,6 @@ function AR() {
             z-index: 99999;
         }
 
-        .burger-menu {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            z-index: 99999;
-            font-size: 24px;
-        }
-
-        .menu-container {
-            position: fixed;
-            top: 0;
-            left: -280px;
-            width: 280px;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 99999;
-            transition: left 0.3s ease;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        .menu-container.open {
-            left: 0;
-        }
-
-        .menu-close {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-        }
-
-        .menu-item {
-            margin-top: 60px;
-            padding: 12px 15px;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: none;
-            width: 100%;
-            text-align: left;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .menu-item:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
         .stop-ar-button {
             position: fixed;
             bottom: 20px;
@@ -195,6 +148,7 @@ function AR() {
             font-weight: bold;
             font-size: 16px;
             z-index: 99999;
+            display: none;
         }
       `;
       document.head.appendChild(style);
@@ -222,11 +176,11 @@ function AR() {
         document.body.appendChild(uiContainer);
         
         // Добавляем кнопку "Назад"
-        const backButton = document.createElement('button');
-        backButton.className = 'back-button';
-        backButton.id = 'backButton';
-        backButton.textContent = '← Назад';
-        uiContainer.appendChild(backButton);
+        // const backButton = document.createElement('button');
+        // backButton.className = 'back-button';
+        // backButton.id = 'backButton';
+        // backButton.textContent = '← Назад';
+        // uiContainer.appendChild(backButton);
         
         // Добавляем селектор моделей
         const modelSelectContainer = document.createElement('div');
@@ -255,48 +209,8 @@ function AR() {
         if (isDemoUser) {
           const demoNotice = document.createElement('div');
           demoNotice.className = 'demo-restrictions';
-          demoNotice.textContent = 'Демо-режим: Ограниченная функциональность. Для полного доступа зарегистрируйтесь.';
+          demoNotice.textContent = 'Демо-режим: Ограниченная функциональность.';
           uiContainer.appendChild(demoNotice);
-        }
-        
-        // Создаем бургер-меню для 3D карты (вне AR)
-        const burgerButton = document.createElement('button');
-        burgerButton.className = 'burger-menu';
-        burgerButton.id = 'burgerButton';
-        burgerButton.innerHTML = '☰';
-        document.body.appendChild(burgerButton);
-        
-        // Создаем контейнер меню
-        const menuContainer = document.createElement('div');
-        menuContainer.className = 'menu-container';
-        menuContainer.id = 'menuContainer';
-        menuContainer.innerHTML = `
-          <button class="menu-close" id="menuClose">✕</button>
-          <button class="menu-item" id="arButton">Запустить AR</button>
-          <button class="menu-item" id="logoutButton">Выйти</button>
-        `;
-        document.body.appendChild(menuContainer);
-        
-        // Добавляем обработчик для кнопки бургер-меню
-        burgerButton.addEventListener('click', () => {
-          menuContainer.classList.add('open');
-        });
-        
-        // Добавляем обработчик для закрытия меню
-        const menuClose = document.getElementById('menuClose');
-        if (menuClose) {
-          menuClose.addEventListener('click', () => {
-            menuContainer.classList.remove('open');
-          });
-        }
-        
-        // Добавляем обработчик для кнопки выхода
-        const logoutButton = document.getElementById('logoutButton');
-        if (logoutButton) {
-          logoutButton.addEventListener('click', () => {
-            // Перенаправляем на главную страницу
-            window.location.href = '/';
-          });
         }
         
         // Добавляем свет
@@ -304,56 +218,29 @@ function AR() {
         light.position.set(0.5, 1, 0.25);
         scene.add(light);
         
-        // Добавляем обработчик для кнопки AR в меню
-        const arButton = document.getElementById('arButton');
-        if (arButton) {
-          arButton.addEventListener('click', () => {
-            menuContainer.classList.remove('open');
-            startARSession();
-          });
-        }
+        // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
+        const xrButton = ARButton.createButton(renderer, {
+          requiredFeatures: ['hit-test'],
+          optionalFeatures: ['dom-overlay'],
+          domOverlay: { root: document.body }
+        });
+        document.body.appendChild(xrButton);
         
-        // Функция для запуска AR сессии
-        const startARSession = () => {
-          // Сразу запускаем AR сессию без отдельной кнопки WebXR
-          if (navigator.xr) {
-            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
-              if (supported) {
-                navigator.xr.requestSession('immersive-ar', {
-                  requiredFeatures: ['hit-test'],
-                  optionalFeatures: ['dom-overlay'],
-                  domOverlay: { root: document.body }
-                }).then(onSessionStarted, (error) => {
-                  console.error('Ошибка при запуске AR сессии:', error);
-                  alert('Не удалось запустить AR. Убедитесь, что ваше устройство поддерживает AR.');
-                });
-              } else {
-                alert('Ваше устройство не поддерживает AR.');
-              }
-            });
-          } else {
-            alert('WebXR не поддерживается в вашем браузере.');
-          }
-        };
-        
-        // Функция обработки начала сессии
-        const onSessionStarted = (session) => {
-          renderer.xr.setReferenceSpaceType('local');
-          renderer.xr.setSession(session);
-          
-          // Показываем элементы управления AR
-          modelSelectContainer.style.display = 'flex';
-          stopArButton.style.display = 'block';
-          backButton.style.display = 'block';
-          
-          // Скрываем меню бургера во время AR сессии
-          burgerButton.style.display = 'none';
-          
+        // Устанавливаем обработчики для отслеживания статуса AR сессии
+        renderer.xr.addEventListener('sessionstart', () => {
+          console.log('AR session started');
           setArActive(true);
           
-          // Настройка hit-test
-          setupHitTest(session);
-        };
+          // Скрываем кнопку ARButton и показываем элементы управления
+          xrButton.style.display = 'none';
+          modelSelectContainer.style.display = 'flex';
+          
+          // Настраиваем hit-test для текущей сессии
+          const session = renderer.xr.getSession();
+          if (session) {
+            setupHitTest(session);
+          }
+        });
         
         // Настройка hit-test
         const setupHitTest = async (session) => {
@@ -452,13 +339,9 @@ function AR() {
           console.log('AR session ended');
           setArActive(false);
           
-          // Скрываем элементы управления AR
-          if (modelSelectContainer) modelSelectContainer.style.display = 'none';
-          if (stopArButton) stopArButton.style.display = 'none';
-          if (backButton) backButton.style.display = 'none';
-          
-          // Показываем меню бургера после завершения AR сессии
-          if (burgerButton) burgerButton.style.display = 'block';
+          // Показываем кнопку ARButton и скрываем элементы управления
+          xrButton.style.display = 'block';
+          modelSelectContainer.style.display = 'none';
         });
         
         // Анимация для 3D карты (не AR режим)
@@ -522,7 +405,6 @@ function AR() {
         // При начальной загрузке скрываем элементы управления AR
         modelSelectContainer.style.display = 'none';
         stopArButton.style.display = 'none';
-        backButton.style.display = 'block'; // Кнопка назад видна и в режиме карты
         
         return () => {
           // Очистка при размонтировании компонента
@@ -536,11 +418,8 @@ function AR() {
           if (uiContainer && uiContainer.parentNode) {
             uiContainer.parentNode.removeChild(uiContainer);
           }
-          if (burgerButton && burgerButton.parentNode) {
-            burgerButton.parentNode.removeChild(burgerButton);
-          }
-          if (menuContainer && menuContainer.parentNode) {
-            menuContainer.parentNode.removeChild(menuContainer);
+          if (xrButton && xrButton.parentNode) {
+            xrButton.parentNode.removeChild(xrButton);
           }
           if (style && style.parentNode) {
             style.parentNode.removeChild(style);
