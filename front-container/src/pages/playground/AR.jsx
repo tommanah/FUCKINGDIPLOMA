@@ -421,6 +421,49 @@ function AR() {
           { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf' }
         ];
         
+        // Функция для получения модели по типу (как в front/ar/index.html)
+        function getModelByType(type) {
+            console.log('Получаем модель по типу:', type);
+            let model;
+            
+            switch (type) {
+                case 'cube':
+                    model = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.15, 0.15, 0.15),
+                        new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+                    );
+                    break;
+                case 'sphere':
+                    model = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.1, 32, 32),
+                        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+                    );
+                    break;
+                case 'sunflower':
+                default:
+                    // Используем готовый объект подсолнуха или создаем простой 
+                    if (loadedModels && loadedModels.sunflower) {
+                        model = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : THREE.Object3D();
+                    } else {
+                        model = new THREE.Mesh(
+                            new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32),
+                            new THREE.MeshStandardMaterial({ color: 0xffff00 })
+                        );
+                    }
+                    break;
+            }
+            
+            // Добавляем тень под моделью
+            const shadowMesh = new THREE.Mesh(
+                new THREE.CircleGeometry(0.15, 32).rotateX(-Math.PI / 2),
+                new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
+            );
+            shadowMesh.position.y = -0.1;
+            model.add(shadowMesh);
+            
+            return model;
+        }
+        
         // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
         const xrButton = ARButton.createButton(renderer, {
           requiredFeatures: ['hit-test'],
@@ -638,53 +681,8 @@ function AR() {
               
               console.log('Создание объекта типа:', selectedModel);
               
-              let mesh;
-              
-              switch(selectedModel) {
-                case 'sunflower':
-                  if (loadedModels.sunflower) {
-                    // Используем загруженную GLTF модель или статическую модель
-                    mesh = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : loadedModels.sunflower;
-                    
-                    // Масштабируем модель до нужного размера
-                    if (mesh instanceof THREE.Group) {
-                      // Для статической модели (THREE.Group)
-                      mesh.scale.set(0.2, 0.2, 0.2);
-                    } else {
-                      // Для загруженной GLTF модели
-                      mesh.scale.set(0.2, 0.2, 0.2);
-                    }
-                    
-                    console.log('Использование модели для подсолнуха:', mesh);
-                  } else {
-                    // Упрощенный подсолнух, если модель не загрузилась
-                    const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
-                    const material = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-                    mesh = new THREE.Mesh(geometry, material);
-                  }
-                  break;
-                
-                case 'sphere':
-                  // Создаем сферу
-                  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-                  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-                  mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                  break;
-                
-                case 'cube':
-                  // Создаем куб
-                  const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                  const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-                  mesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
-                  break;
-                
-                default:
-                  // Создаем простой объект по умолчанию
-                  const defaultGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-                  const defaultMaterial = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
-                  mesh = new THREE.Mesh(defaultGeometry, defaultMaterial);
-                  break;
-              }
+              // Получаем модель по типу используя нашу функцию
+              let mesh = getModelByType(selectedModel);
               
               // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
