@@ -242,16 +242,16 @@ function AR() {
           demoNotice.style.display = 'block';
         }
         
-        // Добавляем селектор моделей (скрытый изначально)
+        // Добавляем селектор моделей
         const modelSelectContainer = document.createElement('div');
         modelSelectContainer.className = 'model-select';
-        modelSelectContainer.style.display = 'none'; // Скрываем по умолчанию
         modelSelectContainer.innerHTML = `
           <select id="modelSelect">
               <option value="sunflower">Подсолнух</option>
               <option value="cube">Куб</option>
               <option value="sphere">Сфера</option>
           </select>
+          <input type="file" id="fileInput" accept=".glb,.gltf" style="margin-top: 10px; width: 100%;" />
           <div class="buttons-container">
               <button id="placementButton" class="active">📦 Разместить</button>
               <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
@@ -326,6 +326,73 @@ function AR() {
         
         // Добавляем обработчик для селектора моделей
         const modelSelect = document.getElementById('modelSelect');
+        const fileInput = document.getElementById('fileInput');
+
+        if (fileInput) {
+          fileInput.addEventListener('change', handleFile, false);
+          
+          function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            interactingWithUI = true;
+            setTimeout(() => {
+              interactingWithUI = false;
+            }, 300);
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+              const contents = e.target.result;
+              
+              // Определяем формат
+              const isBinary = file.name.toLowerCase().endsWith('.glb');
+              
+              // Создаем URL из массива
+              const blob = new Blob([contents]);
+              const url = URL.createObjectURL(blob);
+              
+              // Загружаем пользовательскую модель
+              gltfLoader.load(url, (gltf) => {
+                // Добавляем пользовательскую модель в список доступных
+                const userModel = gltf.scene;
+                loadedModels.userModel = userModel;
+                
+                // Автоматически выбираем пользовательскую модель
+                if (modelSelect) {
+                  // Проверяем, есть ли уже опция для пользовательской модели
+                  let userModelOption = document.querySelector('#modelSelect option[value="userModel"]');
+                  
+                  // Если нет, создаем новую опцию
+                  if (!userModelOption) {
+                    userModelOption = document.createElement('option');
+                    userModelOption.value = 'userModel';
+                    userModelOption.textContent = `Модель: ${file.name}`;
+                    modelSelect.appendChild(userModelOption);
+                  } else {
+                    // Обновляем текст существующей опции
+                    userModelOption.textContent = `Модель: ${file.name}`;
+                  }
+                  
+                  // Выбираем пользовательскую модель
+                  modelSelect.value = 'userModel';
+                  selectedModelType = 'userModel';
+                }
+                
+                console.log('Пользовательская модель загружена:', file.name);
+                URL.revokeObjectURL(url);
+              }, 
+              undefined, 
+              (error) => {
+                console.error('Ошибка при загрузке модели:', error);
+                alert('Ошибка при загрузке модели. Проверьте формат файла.');
+              });
+            };
+            
+            reader.readAsArrayBuffer(file);
+          }
+        }
+        
         if (modelSelect) {
           modelSelect.addEventListener('change', (event) => {
             const select = event.target;
@@ -421,31 +488,6 @@ function AR() {
           { sunflower: './ar/gltf/sunflower/sunflower.gltf', reticle: './ar/gltf/reticle/reticle.gltf' },
           { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf' }
         ];
-        
-        // Функция для получения модели по типу - максимально просто
-        function getModelByType(type) {
-            console.log('Создаем модель:', type);
-            
-            if (type === 'cube') {
-                return new THREE.Mesh(
-                    new THREE.BoxGeometry(0.2, 0.2, 0.2),
-                    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-                );
-            } 
-            else if (type === 'sphere') {
-                return new THREE.Mesh(
-                    new THREE.SphereGeometry(0.15, 32, 32),
-                    new THREE.MeshStandardMaterial({ color: 0xff0000 })
-                );
-            }
-            else {
-                // Подсолнух по умолчанию
-                return new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32),
-                    new THREE.MeshStandardMaterial({ color: 0xffff00 })
-                );
-            }
-        }
         
         // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
         const xrButton = ARButton.createButton(renderer, {
@@ -650,14 +692,84 @@ function AR() {
                 return;
               }
             
-              // Получаем текущее значение из селектора - упрощенный вариант
+              // Получаем текущее значение из селектора
               const modelSelect = document.getElementById('modelSelect');
-              const selectedType = modelSelect ? modelSelect.value : 'sunflower';
+              let selectedModel = 'cube'; // Значение по умолчанию
               
-              console.log('Выбранный тип:', selectedType);
+              if (modelSelect) {
+                selectedModel = modelSelect.value;
+                // Дополнительная проверка для гарантии, что значение получено корректно
+                if (!selectedModel && modelSelect.selectedIndex >= 0 && modelSelect.options[modelSelect.selectedIndex]) {
+                  selectedModel = modelSelect.options[modelSelect.selectedIndex].value;
+                }
+              }
               
-              // Создаем нужную модель
-              const mesh = getModelByType(selectedType);
+              console.log('Создание объекта типа:', selectedModel);
+              
+              let mesh;
+              
+              switch(selectedModel) {
+                case 'sunflower':
+                  if (loadedModels.sunflower) {
+                    // Используем загруженную GLTF модель или статическую модель
+                    mesh = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : loadedModels.sunflower;
+                    
+                    // Масштабируем модель до нужного размера
+                    if (mesh instanceof THREE.Group) {
+                      // Для статической модели (THREE.Group)
+                      mesh.scale.set(0.2, 0.2, 0.2);
+                    } else {
+                      // Для загруженной GLTF модели
+                      mesh.scale.set(0.2, 0.2, 0.2);
+                    }
+                    
+                    console.log('Использование модели для подсолнуха:', mesh);
+                  } else {
+                    // Упрощенный подсолнух, если модель не загрузилась
+                    const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+                    const material = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+                    mesh = new THREE.Mesh(geometry, material);
+                  }
+                  break;
+                
+                case 'sphere':
+                  // Создаем сферу
+                  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+                  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                  mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                  break;
+                
+                case 'cube':
+                  // Создаем куб
+                  const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                  const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                  mesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                  break;
+                
+                case 'userModel':
+                  // Используем загруженную пользователем модель
+                  if (loadedModels.userModel) {
+                    mesh = loadedModels.userModel.clone();
+                    
+                    // Масштабируем модель до разумного размера
+                    mesh.scale.set(0.2, 0.2, 0.2);
+                    
+                    console.log('Использование пользовательской модели');
+                  } else {
+                    // Если что-то пошло не так, используем куб
+                    const fallbackGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                    const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                    mesh = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
+                  }
+                  break;
+                
+                default:
+                  // Создаем простой объект по умолчанию
+                  const defaultGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+                  const defaultMaterial = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
+                  mesh = new THREE.Mesh(defaultGeometry, defaultMaterial);
+                  break;
+              }
               
               // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
@@ -880,9 +992,9 @@ function AR() {
         const burgerMenuButtonEl = document.getElementById('burgerMenuButton');
         if (burgerMenuButtonEl) {
           burgerMenuButtonEl.addEventListener('click', () => {
-            // Переключаем видимость меню выбора моделей
             const modelSelectContainer = document.querySelector('.model-select');
             if (modelSelectContainer) {
+              // Переключаем видимость меню выбора моделей
               if (modelSelectContainer.style.display === 'none') {
                 modelSelectContainer.style.display = 'flex';
               } else {
