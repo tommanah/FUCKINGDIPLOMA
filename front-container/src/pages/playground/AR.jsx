@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useAppSelector } from '../../store/hooks';
+import './AR.css';
+import './notifications.css';
 
 // Глобальная переменная для хранения функции запуска AR
 let startARSessionFunction = null;
@@ -13,196 +15,23 @@ export function startARSession() {
   return false;
 }
 
+// Максимальное количество объектов для демо-пользователя
+const MAX_DEMO_OBJECTS = 10;
+
 function AR() {
   const mountRef = useRef(null);
   const token = useAppSelector(state => state.auth.token);
   const userModel = useAppSelector(state => state.auth.userModel);
+  const userModels = useAppSelector(state => state.auth.userModels || []);
   const isDemoUser = token === 'demo-token-no-permissions';
   const [arActive, setArActive] = useState(false);
+  const [placedObjectsCount, setPlacedObjectsCount] = useState(0);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
     // Загружаем скрипты для AR
     const loadScripts = async () => {
-      // Создаем и добавляем стили для AR
-      const style = document.createElement('style');
-      style.textContent = `
-        .model-select {
-          position: fixed;
-          top: 60px;
-          left: 10px;
-          z-index: 9000;
-          background: rgba(0, 0, 0, 0.7);
-          padding: 15px;
-          border-radius: 10px;
-          pointer-events: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          min-width: 200px;
-        }
-        
-        .model-select select {
-            padding: 8px;
-            border-radius: 5px;
-            border: none;
-            background: white;
-            font-size: 14px;
-            width: 100%;
-        }
-        
-        .model-select .buttons-container {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 5px;
-            flex-wrap: wrap;
-        }
-        
-        .model-select .buttons-container button {
-            padding: 6px 10px;
-            border: none;
-            border-radius: 5px;
-            background: white;
-            color: black;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-            min-width: 70px;
-        }
-        
-        .model-select .buttons-container button.active {
-            background: #4CAF50;
-            color: white;
-        }
-        
-        .ui-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 9000;
-        }
-        
-        .ui-container > * {
-            pointer-events: auto;
-        }
-        
-        #ARButton {
-            position: fixed !important;
-            bottom: 20px !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            padding: 12px 24px !important;
-            border: 1px solid #fff !important;
-            border-radius: 4px !important;
-            background: rgba(0, 0, 0, 0.8) !important;
-            color: #fff !important;
-            font: 13px sans-serif !important;
-            text-align: center !important;
-            outline: none !important;
-            z-index: 999999 !important;
-            cursor: pointer !important;
-        }
-        
-        .demo-restrictions {
-            position: fixed;
-            bottom: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(255, 87, 34, 0.9);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-size: 14px;
-            z-index: 9999;
-            text-align: center;
-            max-width: 90%;
-            display: none;
-        }
-        
-        .ar-container {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            z-index: 200;
-        }
-        
-        .back-button {
-            position: fixed;
-            top: 15px;
-            right: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            z-index: 99999;
-        }
-
-        .burger-menu-button {
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 20px;
-            font-weight: bold;
-            z-index: 99999;
-        }
-        
-        .stop-ar-button {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #f44336;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
-            z-index: 99999;
-        }
-        
-        .show-planes-button {
-            position: relative;
-            background: white;
-            color: black;
-            border: none;
-            padding: 6px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 12px;
-            min-width: 70px;
-        }
-        
-        .show-planes-button.active {
-            background: #4CAF50;
-            color: white;
-        }
-
-        
-        .show-planes-button.active {
-            background: #4CAF50;
-        }
-      `;
-      document.head.appendChild(style);
-
       try {
         // Инициализация AR с использованием Three.js и WebXR
         const ARButton = await import('three/examples/jsm/webxr/ARButton.js').then(module => module.ARButton);
@@ -243,9 +72,6 @@ function AR() {
           demoNotice.style.display = 'block';
         }
         
-        // Загружаем модели GLTF
-        const gltfLoader = new GLTFLoader();
-        
         // Сразу создаем объект для хранения моделей
         const loadedModels = {
           sunflower: null,
@@ -260,18 +86,30 @@ function AR() {
         // Проверяем, есть ли загруженная пользователем модель
         const hasUserModel = userModel && userModel.url;
         
+        // Создаем опции для всех доступных пользовательских моделей
+        let userModelsOptions = '';
+        if (userModels && userModels.length > 0) {
+          userModelsOptions = userModels.map(model => 
+            `<option value="userModel-${model.id}">Модель: ${model.name}</option>`
+          ).join('');
+        } else if (hasUserModel) {
+          // Поддержка обратной совместимости для старой версии с одной моделью
+          userModelsOptions = `<option value="userModel">Модель: ${userModel.name}</option>`;
+        }
+        
         const modelSelectHTML = `
           <select id="modelSelect">
               <option value="sunflower">Подсолнух</option>
               <option value="cube">Куб</option>
               <option value="sphere">Сфера</option>
-              ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
+              ${userModelsOptions}
           </select>
           <div class="buttons-container">
               <button id="placementButton" class="active">📦 Разместить</button>
               <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
               <button id="showPlanesButton">🔍 Плоскости</button>
           </div>
+          ${isDemoUser ? `<div class="model-limit-info">Размещено: ${placedObjectsCount}/${MAX_DEMO_OBJECTS} объектов (демо-режим)</div>` : ''}
         `;
         
         modelSelectContainer.innerHTML = modelSelectHTML;
@@ -285,9 +123,39 @@ function AR() {
         // Переменная для отслеживания текущего выбранного типа модели
         let selectedModelType = "sunflower";
         
-        // Если есть пользовательская модель, загружаем её
-        if (hasUserModel) {
+        // Загружаем пользовательские модели
+        if (userModels && userModels.length > 0) {
+          console.log('Загружаем пользовательские модели:', userModels.length);
+          
+          // Создаем загрузчик GLTF для моделей
+          const gltfLoader = new GLTFLoader();
+          
+          userModels.forEach(model => {
+            try {
+              gltfLoader.load(model.url, 
+                function(gltf) {
+                  console.log(`Модель ${model.name} успешно загружена`);
+                  // Сохраняем модель с её ID
+                  loadedModels[`userModel-${model.id}`] = gltf.scene;
+                },
+                function(xhr) {
+                  console.log(`Прогресс загрузки модели ${model.name}:`, (xhr.loaded / xhr.total * 100) + '%');
+                },
+                function(error) {
+                  console.error(`Ошибка при загрузке модели ${model.name}:`, error);
+                }
+              );
+            } catch (error) {
+              console.error(`Ошибка при загрузке модели ${model.name}:`, error);
+            }
+          });
+        } else if (hasUserModel) {
+          // Обратная совместимость для одной модели
           console.log('Загружаем пользовательскую модель из Main:', userModel.name);
+          
+          // Создаем загрузчик GLTF для модели
+          const gltfLoader = new GLTFLoader();
+          
           try {
             gltfLoader.load(userModel.url, 
               function(gltf) {
@@ -620,6 +488,16 @@ function AR() {
           });
         };
         
+        // Обновляем счетчик размещенных объектов
+        const updatePlacedObjectsCounter = () => {
+          if (isDemoUser) {
+            const counterElement = document.querySelector('.model-limit-info');
+            if (counterElement) {
+              counterElement.textContent = `Размещено: ${placedObjectsCount}/${MAX_DEMO_OBJECTS} объектов (демо-режим)`;
+            }
+          }
+        };
+        
         // Настройка hit-test
         const setupHitTest = async (session) => {
           const viewerSpace = await session.requestReferenceSpace('viewer');
@@ -637,10 +515,6 @@ function AR() {
           reticle.matrixAutoUpdate = false;
           reticle.visible = false;
           scene.add(reticle);
-          
-          // Максимальное количество объектов для демо-пользователя
-          const MAX_DEMO_OBJECTS = 3;
-          let placedObjectsCount = 0;
           
           // Обработка нажатий для размещения объектов
           const controller = renderer.xr.getController(0);
@@ -664,7 +538,7 @@ function AR() {
                 if (existingNotice) {
                   existingNotice.style.display = 'block';
                   existingNotice.textContent = 
-                    'Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
+                    'Лимит размещения объектов достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
                   
                   // Скрываем сообщение через 3 секунды
                   setTimeout(() => {
@@ -690,30 +564,34 @@ function AR() {
               
               let mesh;
 
-                if (loadedModels[selectedModel]) {
+              // Проверяем, если это пользовательская модель с id
+              if (selectedModel.startsWith('userModel-') && loadedModels[selectedModel]) {
                 mesh = loadedModels[selectedModel].clone();
                 mesh.scale.set(0.2, 0.2, 0.2);
-                console.log(`Используем модель: ${selectedModel}`, mesh);
-                } else if (selectedModel === 'userModel') {
+                console.log(`Используем пользовательскую модель: ${selectedModel}`);
+              } else if (loadedModels[selectedModel]) {
+                mesh = loadedModels[selectedModel].clone();
+                mesh.scale.set(0.2, 0.2, 0.2);
+                console.log(`Используем модель: ${selectedModel}`);
+              } else if (selectedModel === 'userModel') {
                 if (loadedModels.userModel) {
-                    mesh = loadedModels.userModel.clone();
-                    mesh.scale.set(0.2, 0.2, 0.2);
-                    console.log('Размещаем пользовательскую модель');
+                  mesh = loadedModels.userModel.clone();
+                  mesh.scale.set(0.2, 0.2, 0.2);
+                  console.log('Размещаем пользовательскую модель');
                 } else {
-                    console.warn('Пользовательская модель не найдена, используем запасной вариант');
-                    mesh = new THREE.Mesh(
+                  console.warn('Пользовательская модель не найдена, используем запасной вариант');
+                  mesh = new THREE.Mesh(
                     new THREE.BoxGeometry(0.2, 0.2, 0.2),
                     new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-                    );
+                  );
                 }
-                } else {
+              } else {
                 console.warn('Неизвестный тип модели:', selectedModel, '- создаём резервный куб');
                 mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.15, 0.15, 0.15),
-                    new THREE.MeshStandardMaterial({ color: 0x1E90FF })
+                  new THREE.BoxGeometry(0.15, 0.15, 0.15),
+                  new THREE.MeshStandardMaterial({ color: 0x1E90FF })
                 );
-                }
-
+              }
               
               // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
@@ -721,7 +599,10 @@ function AR() {
               
               scene.add(mesh);
               placedObjects.push(mesh);
-              placedObjectsCount++;
+              
+              // Увеличиваем счетчик и обновляем отображение
+              setPlacedObjectsCount(prev => prev + 1);
+              updatePlacedObjectsCounter();
             } 
             // Режим редактирования - выбор объекта
             else if (editButton && editButton.classList.contains('active') && !isDemoUser) {
@@ -863,6 +744,9 @@ function AR() {
           // Очищаем сцену от размещенных объектов
           placedObjects.forEach(obj => scene.remove(obj));
           placedObjects.length = 0;
+          
+          // Сбрасываем счетчик размещенных объектов
+          setPlacedObjectsCount(0);
         });
         
         // Анимация для 3D карты (не AR режим)
@@ -973,9 +857,6 @@ function AR() {
           if (xrButton && xrButton.parentNode) {
             xrButton.parentNode.removeChild(xrButton);
           }
-          if (style && style.parentNode) {
-            style.parentNode.removeChild(style);
-          }
           
           // Обнуляем функцию запуска AR
           startARSessionFunction = null;
@@ -995,7 +876,7 @@ function AR() {
     };
 
     loadScripts();
-  }, [isDemoUser, token, userModel]);
+  }, [isDemoUser, token, userModel, userModels, placedObjectsCount]);
 
   return (
     <div 
