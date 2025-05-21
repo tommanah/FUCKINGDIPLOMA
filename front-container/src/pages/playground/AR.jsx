@@ -98,6 +98,7 @@ function AR() {
           <div class="buttons-container">
               <button id="placementButton" class="active">📦 Разместить</button>
               <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+              <button id="rotateButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>🔄 Вращать</button>
               <button id="showPlanesButton">🔍 Плоскости</button>
           </div>
         `;
@@ -401,6 +402,11 @@ function AR() {
           }
         });
         
+        // Инициализируем переменные для вращения объектов
+        let isRotating = false;
+        let rotationStartPosition = { x: 0, y: 0 };
+        let rotationAxis = 'y'; // по умолчанию вращаем вокруг оси Y
+        
         // Функция для обработки обнаруженных плоскостей
         const handlePlaneDetected = (plane) => {
           if (!planes.active) return;
@@ -468,6 +474,7 @@ function AR() {
           // Обработка нажатий для размещения объектов
           const controller = renderer.xr.getController(0);
           
+          // При инициализации контроллера удалим добавленный ранее дублирующий код
           controller.addEventListener('select', (event) => {
             // Проверяем, не взаимодействует ли пользователь с UI
             if (interactingWithUI) {
@@ -477,6 +484,7 @@ function AR() {
             
             const placementButton = document.getElementById('placementButton');
             const editButton = document.getElementById('editButton');
+            const rotateButton = document.getElementById('rotateButton');
             
             // Режим размещения объектов
             if (placementButton && placementButton.classList.contains('active') && reticle.visible) {
@@ -535,8 +543,9 @@ function AR() {
               placedObjects.push(mesh);
               placedObjectsCount++;
             } 
-            // Режим редактирования - выбор объекта
-            else if (editButton && editButton.classList.contains('active') && !isDemoUser) {
+            // Режим редактирования или вращения - выбор объекта
+            else if ((editButton && editButton.classList.contains('active') || 
+                     rotateButton && rotateButton.classList.contains('active')) && !isDemoUser) {
               // Проверяем, не выбрали ли мы какой-то объект
               const raycaster = new THREE.Raycaster();
               const tmpVector = new THREE.Vector2(0, 0); // Центр экрана
@@ -554,7 +563,7 @@ function AR() {
                 // Если ранее был выбранный объект, убираем подсветку
                 if (selectedObject) {
                   // Восстанавливаем оригинальный материал
-                  if (selectedObject.material.originalColor) {
+                  if (selectedObject.material && selectedObject.material.originalColor) {
                     selectedObject.material.color.setHex(selectedObject.material.originalColor);
                   }
                 }
@@ -577,6 +586,46 @@ function AR() {
                 }
               }
             }
+          });
+          
+          // Добавляем обработчик касаний для вращения объектов
+          renderer.domElement.addEventListener('touchstart', (event) => {
+            if (selectedObject && document.getElementById('rotateButton')?.classList.contains('active') && !isDemoUser) {
+              isRotating = true;
+              // Запоминаем начальную позицию касания
+              rotationStartPosition.x = event.touches[0].clientX;
+              rotationStartPosition.y = event.touches[0].clientY;
+              // Предотвращаем прокрутку страницы при вращении объекта
+              event.preventDefault();
+            }
+          }, { passive: false });
+          
+          renderer.domElement.addEventListener('touchmove', (event) => {
+            if (isRotating && selectedObject) {
+              // Вычисляем смещение от начальной позиции касания
+              const deltaX = (event.touches[0].clientX - rotationStartPosition.x) * 0.01;
+              const deltaY = (event.touches[0].clientY - rotationStartPosition.y) * 0.01;
+              
+              // Применяем вращение в зависимости от выбранной оси
+              if (rotationAxis === 'y') {
+                selectedObject.rotation.y += deltaX;
+              } else if (rotationAxis === 'x') {
+                selectedObject.rotation.x += deltaY;
+              } else if (rotationAxis === 'z') {
+                selectedObject.rotation.z += deltaX;
+              }
+              
+              // Обновляем начальную позицию касания
+              rotationStartPosition.x = event.touches[0].clientX;
+              rotationStartPosition.y = event.touches[0].clientY;
+              
+              // Предотвращаем прокрутку страницы при вращении объекта
+              event.preventDefault();
+            }
+          }, { passive: false });
+          
+          renderer.domElement.addEventListener('touchend', (event) => {
+            isRotating = false;
           });
           
           // Функция для обновления положения указателя
@@ -621,24 +670,29 @@ function AR() {
             
             // Если есть выбранный объект и мы в режиме редактирования, обработка перемещения
             const editButton = document.getElementById('editButton');
-            if (selectedObject && editButton && editButton.classList.contains('active') && !isDemoUser) {
-              // Здесь можно добавить обработку перемещения объекта
-              // Например, привязывать его к результатам hit-test или к позиции контроллера
-              if (hitTestResults.length > 0) {
-                const hit = hitTestResults[0];
-                const referenceSpace = renderer.xr.getReferenceSpace();
-                if (referenceSpace) {
-                  const pose = hit.getPose(referenceSpace);
-                  if (pose) {
-                    // Обновляем позицию выбранного объекта
-                    selectedObject.position.set(
-                      pose.transform.position.x,
-                      pose.transform.position.y,
-                      pose.transform.position.z
-                    );
+            const rotateButton = document.getElementById('rotateButton');
+
+            if (selectedObject && !isDemoUser) {
+              if (editButton && editButton.classList.contains('active')) {
+                // Обработка перемещения объекта
+                if (hitTestResults.length > 0) {
+                  const hit = hitTestResults[0];
+                  const referenceSpace = renderer.xr.getReferenceSpace();
+                  if (referenceSpace) {
+                    const pose = hit.getPose(referenceSpace);
+                    if (pose) {
+                      // Обновляем позицию выбранного объекта
+                      selectedObject.position.set(
+                        pose.transform.position.x,
+                        pose.transform.position.y,
+                        pose.transform.position.z
+                      );
+                    }
                   }
                 }
-              }
+              } 
+              // Здесь может быть дополнительная логика для режима вращения, но основное вращение
+              // уже обрабатывается через события touchmove
             }
             
             renderer.render(scene, camera);
@@ -664,6 +718,12 @@ function AR() {
             burgerMenuBtn.style.display = 'none';
           }
           
+          // Удаляем селектор осей, если он существует
+          const axisSelector = document.getElementById('axisSelector');
+          if (axisSelector) {
+            axisSelector.style.display = 'none';
+          }
+          
           // Показываем уведомление для демо-пользователя при выходе из AR
           if (isDemoUser) {
             const demoAlert = document.createElement('div');
@@ -678,8 +738,9 @@ function AR() {
             }, 3000);
           }
           
-          // Сбрасываем выбранный объект
+          // Сбрасываем выбранный объект и состояние вращения
           selectedObject = null;
+          isRotating = false;
           
           // Очищаем сцену от размещенных объектов
           placedObjects.forEach(obj => scene.remove(obj));
@@ -707,11 +768,19 @@ function AR() {
         // Настройка кнопок управления
         const placementButton = document.getElementById('placementButton');
         const editButton = document.getElementById('editButton');
+        const rotateButton = document.getElementById('rotateButton');
         
-        if (placementButton && editButton) {
+        if (placementButton && editButton && rotateButton) {
           placementButton.addEventListener('click', () => {
             placementButton.classList.add('active');
             editButton.classList.remove('active');
+            if (rotateButton) rotateButton.classList.remove('active');
+            
+            // Скрываем селектор осей при выходе из режима вращения
+            const axisSelector = document.getElementById('axisSelector');
+            if (axisSelector) {
+              axisSelector.style.display = 'none';
+            }
             
             // Сбрасываем выбор объекта при переключении в режим размещения
             if (selectedObject) {
@@ -726,6 +795,52 @@ function AR() {
             editButton.addEventListener('click', () => {
               editButton.classList.add('active');
               placementButton.classList.remove('active');
+              if (rotateButton) rotateButton.classList.remove('active');
+              
+              // Скрываем селектор осей при выходе из режима вращения
+              const axisSelector = document.getElementById('axisSelector');
+              if (axisSelector) {
+                axisSelector.style.display = 'none';
+              }
+            });
+            
+            // Добавляем обработчик к кнопке вращения
+            rotateButton.addEventListener('click', () => {
+              rotateButton.classList.add('active');
+              placementButton.classList.remove('active');
+              editButton.classList.remove('active');
+              
+              // Создаем элементы UI для выбора оси вращения, если их еще нет
+              let axisSelector = document.getElementById('axisSelector');
+              if (!axisSelector) {
+                axisSelector = document.createElement('div');
+                axisSelector.id = 'axisSelector';
+                axisSelector.className = 'axis-selector';
+                axisSelector.innerHTML = `
+                  <span>Ось вращения:</span>
+                  <button data-axis="x" ${rotationAxis === 'x' ? 'class="active"' : ''}>X</button>
+                  <button data-axis="y" ${rotationAxis === 'y' ? 'class="active"' : ''}>Y</button>
+                  <button data-axis="z" ${rotationAxis === 'z' ? 'class="active"' : ''}>Z</button>
+                `;
+                modelSelectContainer.appendChild(axisSelector);
+                
+                // Добавляем обработчики для кнопок выбора оси
+                const axisButtons = axisSelector.querySelectorAll('button');
+                axisButtons.forEach(button => {
+                  button.addEventListener('click', (e) => {
+                    // Убираем активный класс со всех кнопок
+                    axisButtons.forEach(btn => btn.classList.remove('active'));
+                    // Добавляем активный класс на нажатую кнопку
+                    e.target.classList.add('active');
+                    // Устанавливаем новую ось вращения
+                    rotationAxis = e.target.dataset.axis;
+                    // Предотвращаем всплытие событий
+                    e.stopPropagation();
+                  });
+                });
+              } else {
+                axisSelector.style.display = 'flex';
+              }
             });
           }
         }
