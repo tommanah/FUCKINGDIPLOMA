@@ -16,6 +16,7 @@ export function startARSession() {
 function AR() {
   const mountRef = useRef(null);
   const token = useAppSelector(state => state.auth.token);
+  const userModel = useAppSelector(state => state.auth.userModel);
   const isDemoUser = token === 'demo-token-no-permissions';
   const [arActive, setArActive] = useState(false);
 
@@ -255,19 +256,25 @@ function AR() {
         // Добавляем селектор моделей
         const modelSelectContainer = document.createElement('div');
         modelSelectContainer.className = 'model-select';
-        modelSelectContainer.innerHTML = `
+        
+        // Проверяем, есть ли загруженная пользователем модель
+        const hasUserModel = userModel && userModel.url;
+        
+        const modelSelectHTML = `
           <select id="modelSelect">
               <option value="sunflower">Подсолнух</option>
               <option value="cube">Куб</option>
               <option value="sphere">Сфера</option>
+              ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
-          <input type="file" id="fileInput" accept=".glb,.gltf" style="margin-top: 10px; width: 100%;" />
           <div class="buttons-container">
               <button id="placementButton" class="active">📦 Разместить</button>
               <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
               <button id="showPlanesButton">🔍 Плоскости</button>
           </div>
         `;
+        
+        modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
 
         // Добавляем свет
@@ -277,6 +284,35 @@ function AR() {
         
         // Переменная для отслеживания текущего выбранного типа модели
         let selectedModelType = "sunflower";
+        
+        // Если есть пользовательская модель, загружаем её
+        if (hasUserModel) {
+          console.log('Загружаем пользовательскую модель из Main:', userModel.name);
+          try {
+            gltfLoader.load(userModel.url, 
+              function(gltf) {
+                console.log('Пользовательская модель успешно загружена');
+                loadedModels.userModel = gltf.scene;
+                
+                // Автоматически выбираем пользовательскую модель
+                const modelSelect = document.getElementById('modelSelect');
+                if (modelSelect) {
+                  modelSelect.value = 'userModel';
+                  // Обновляем значение выбранной модели
+                  selectedModelType = 'userModel';
+                }
+              },
+              function(xhr) {
+                console.log('Прогресс загрузки модели из Main:', (xhr.loaded / xhr.total * 100) + '%');
+              },
+              function(error) {
+                console.error('Ошибка при загрузке модели из Main:', error);
+              }
+            );
+          } catch (error) {
+            console.error('Ошибка при загрузке пользовательской модели:', error);
+          }
+        }
         
         // Предотвращаем срабатывание controller select при взаимодействии с UI
         const isUIElement = (element) => {
@@ -336,158 +372,7 @@ function AR() {
         
         // Добавляем обработчик для селектора моделей
         const modelSelect = document.getElementById('modelSelect');
-        const fileInput = document.getElementById('fileInput');
 
-        if (fileInput) {
-          console.log('Найден элемент выбора файла:', fileInput);
-          fileInput.addEventListener('change', function(event) {
-            console.log('Файл выбран, обрабатываем...');
-            const file = event.target.files[0];
-            if (!file) {
-              console.log('Файл не выбран');
-              return;
-            }
-            
-            // Проверяем формат файла
-            const isValidFormat = file.name.toLowerCase().endsWith('.glb') || 
-                                file.name.toLowerCase().endsWith('.gltf');
-            if (!isValidFormat) {
-              alert('Пожалуйста, выберите файл формата .glb или .gltf');
-              return;
-            }
-            
-            console.log('Выбран файл:', file.name);
-            
-            // Показываем индикатор загрузки
-            const loadingNotification = document.createElement('div');
-            loadingNotification.style.position = 'fixed';
-            loadingNotification.style.bottom = '100px';
-            loadingNotification.style.left = '50%';
-            loadingNotification.style.transform = 'translateX(-50%)';
-            loadingNotification.style.background = 'rgba(0, 0, 0, 0.7)';
-            loadingNotification.style.color = 'white';
-            loadingNotification.style.padding = '10px 15px';
-            loadingNotification.style.borderRadius = '5px';
-            loadingNotification.style.zIndex = '99999';
-            loadingNotification.textContent = `Загрузка модели "${file.name}"...`;
-            document.body.appendChild(loadingNotification);
-            
-            interactingWithUI = true;
-            setTimeout(() => {
-              interactingWithUI = false;
-            }, 300);
-            
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-              console.log('Файл прочитан, размер данных:', e.target.result.byteLength);
-              const contents = e.target.result;
-              
-              // Создаем URL из массива
-              const blob = new Blob([contents]);
-              const url = URL.createObjectURL(blob);
-              
-              console.log('Создан URL для модели:', url);
-              
-              // Добавляем модель в список с временным именем
-              modelSelect = document.getElementById('modelSelect');
-              let userModelOption = document.createElement('option');
-              userModelOption.value = 'userModel';
-              userModelOption.textContent = `Загрузка модели: ${file.name}...`;
-              modelSelect.appendChild(userModelOption);
-              modelSelect.value = 'userModel';
-              
-              // Загружаем пользовательскую модель
-              console.log('Загружаем пользовательскую модель...');
-              gltfLoader.load(url, 
-                function(gltf) {
-                  console.log('Модель успешно загружена:', gltf);
-                  
-                  // Удаляем индикатор загрузки
-                  if (loadingNotification.parentNode) {
-                    loadingNotification.parentNode.removeChild(loadingNotification);
-                  }
-                  
-                  // Сохраняем загруженную модель
-                  loadedModels.userModel = gltf.scene;
-                  
-                  // Обновляем опцию в селекторе
-                  if (userModelOption) {
-                    userModelOption.textContent = `Модель: ${file.name}`;
-                  }
-                  
-                  // Выбираем пользовательскую модель
-                  if (modelSelect) {
-                    modelSelect.value = 'userModel';
-                    selectedModelType = 'userModel';
-                  }
-                  
-                  console.log('Пользовательская модель загружена и добавлена:', file.name);
-                  URL.revokeObjectURL(url);
-                  
-                  // Добавляем уведомление о успешной загрузке
-                  const notification = document.createElement('div');
-                  notification.style.position = 'fixed';
-                  notification.style.bottom = '100px';
-                  notification.style.left = '50%';
-                  notification.style.transform = 'translateX(-50%)';
-                  notification.style.background = 'rgba(37, 185, 85, 0.9)';
-                  notification.style.color = 'white';
-                  notification.style.padding = '10px 15px';
-                  notification.style.borderRadius = '5px';
-                  notification.style.zIndex = '99999';
-                  notification.textContent = `Модель "${file.name}" успешно загружена`;
-                  document.body.appendChild(notification);
-                  
-                  setTimeout(() => {
-                    if (notification.parentNode) {
-                      notification.parentNode.removeChild(notification);
-                    }
-                  }, 3000);
-                }, 
-                function(xhr) {
-                  console.log('Прогресс загрузки:', (xhr.loaded / xhr.total * 100) + '%');
-                  if (loadingNotification.parentNode) {
-                    const progress = Math.round(xhr.loaded / xhr.total * 100);
-                    loadingNotification.textContent = `Загрузка модели "${file.name}"... ${progress}%`;
-                  }
-                },
-                function(error) {
-                  console.error('Ошибка при загрузке модели:', error);
-                  
-                  // Удаляем индикатор загрузки
-                  if (loadingNotification.parentNode) {
-                    loadingNotification.parentNode.removeChild(loadingNotification);
-                  }
-                  
-                  alert('Ошибка при загрузке модели. Проверьте формат файла.');
-                  
-                  // Удаляем опцию, если произошла ошибка
-                  if (userModelOption && userModelOption.parentNode) {
-                    userModelOption.parentNode.removeChild(userModelOption);
-                  }
-                  
-                  URL.revokeObjectURL(url);
-                }
-              );
-            };
-            
-            reader.onerror = function(e) {
-              console.error('Ошибка при чтении файла:', e);
-              
-              // Удаляем индикатор загрузки
-              if (loadingNotification.parentNode) {
-                loadingNotification.parentNode.removeChild(loadingNotification);
-              }
-              
-              alert('Ошибка при чтении файла.');
-            };
-            
-            console.log('Начинаем чтение файла как ArrayBuffer...');
-            reader.readAsArrayBuffer(file);
-          });
-        }
-        
         if (modelSelect) {
           modelSelect.addEventListener('change', (event) => {
             const select = event.target;
@@ -534,40 +419,44 @@ function AR() {
         }
         
         // Создаем статические модели вместо загрузки GLTF
-        const createStaticModels = () => {
-          console.log('Создаем статические модели вместо загрузки GLTF');
-          
-          // Создаем подсолнух
-          const sunflowerGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
-          const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x008800 });
-          const stem = new THREE.Mesh(sunflowerGeometry, stemMaterial);
-          
-          // Добавляем головку подсолнуха
-          const headGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-          const headMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-          const head = new THREE.Mesh(headGeometry, headMaterial);
-          head.position.set(0, 0.2, 0);
-          
-          // Группируем элементы
-          const sunflowerModel = new THREE.Group();
-          sunflowerModel.add(stem);
-          sunflowerModel.add(head);
-          
-          // Создаем указатель
-          const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
-          const reticleMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x0099ff,
-            transparent: true,
-            opacity: 0.7
-          });
-          const reticleModel = new THREE.Mesh(reticleGeometry, reticleMaterial);
-          
-          // Обновляем наш объект loadedModels вместо создания нового
-          loadedModels.sunflower = sunflowerModel;
-          loadedModels.reticle = reticleModel;
-          
-          return loadedModels;
+       const createStaticModels = () => {
+        console.log('Создаем статические модели');
+
+        // Подсолнух
+        const sunflowerGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+        const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x008800 });
+        const stem = new THREE.Mesh(sunflowerGeometry, stemMaterial);
+
+        const headGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+        const headMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+        const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.position.set(0, 0.2, 0);
+
+        const sunflowerModel = new THREE.Group();
+        sunflowerModel.add(stem);
+        sunflowerModel.add(head);
+
+        // Куб
+        const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+        const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+        const cubeModel = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+        // Сфера
+        const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+        const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const sphereModel = new THREE.Mesh(sphereGeometry, sphereMaterial);
+
+        // Указатель (ретикл)
+        const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+        const reticleMaterial = new THREE.MeshBasicMaterial({ color: 0x0099ff, transparent: true, opacity: 0.7 });
+        const reticleModel = new THREE.Mesh(reticleGeometry, reticleMaterial);
+
+        loadedModels.sunflower = sunflowerModel;
+        loadedModels.cube = cubeModel;
+        loadedModels.sphere = sphereModel;
+        loadedModels.reticle = reticleModel;
         };
+
         
         // Сразу создаем статичные модели для использования, пока загружаются GLTF
         createStaticModels();
@@ -800,71 +689,31 @@ function AR() {
               console.log('Создание объекта типа:', selectedModel);
               
               let mesh;
-              
-              switch(selectedModel) {
-                case 'sunflower':
-                  if (loadedModels.sunflower) {
-                    // Используем загруженную GLTF модель или статическую модель
-                    mesh = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : loadedModels.sunflower;
-                    
-                    // Масштабируем модель до нужного размера
-                    if (mesh instanceof THREE.Group) {
-                      // Для статической модели (THREE.Group)
-                      mesh.scale.set(0.2, 0.2, 0.2);
-                    } else {
-                      // Для загруженной GLTF модели
-                      mesh.scale.set(0.2, 0.2, 0.2);
-                    }
-                    
-                    console.log('Использование модели для подсолнуха:', mesh);
-                  } else {
-                    // Упрощенный подсолнух, если модель не загрузилась
-                    const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
-                    const material = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-                    mesh = new THREE.Mesh(geometry, material);
-                  }
-                  break;
-                
-                case 'sphere':
-                  // Создаем сферу
-                  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
-                  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-                  mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                  break;
-                
-                case 'cube':
-                  // Создаем куб
-                  const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                  const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-                  mesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
-                  break;
-                
-                case 'userModel':
-                  // Используем загруженную пользователем модель
-                  if (loadedModels.userModel) {
-                    console.log('Размещаем пользовательскую модель');
-                    
-                    // Клонируем модель, чтобы можно было размещать несколько экземпляров
+
+                if (loadedModels[selectedModel]) {
+                mesh = loadedModels[selectedModel].clone();
+                mesh.scale.set(0.2, 0.2, 0.2);
+                console.log(`Используем модель: ${selectedModel}`, mesh);
+                } else if (selectedModel === 'userModel') {
+                if (loadedModels.userModel) {
                     mesh = loadedModels.userModel.clone();
-                    
-                    // Масштабируем модель до разумного размера
                     mesh.scale.set(0.2, 0.2, 0.2);
-                  } else {
+                    console.log('Размещаем пользовательскую модель');
+                } else {
                     console.warn('Пользовательская модель не найдена, используем запасной вариант');
-                    // Если что-то пошло не так, используем куб в качестве запасного варианта
-                    const fallbackGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                    const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-                    mesh = new THREE.Mesh(fallbackGeometry, fallbackMaterial);
-                  }
-                  break;
-                
-                default:
-                  // Создаем простой объект по умолчанию
-                  const defaultGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-                  const defaultMaterial = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
-                  mesh = new THREE.Mesh(defaultGeometry, defaultMaterial);
-                  break;
-              }
+                    mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.2, 0.2, 0.2),
+                    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+                    );
+                }
+                } else {
+                console.warn('Неизвестный тип модели:', selectedModel, '- создаём резервный куб');
+                mesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.15, 0.15, 0.15),
+                    new THREE.MeshStandardMaterial({ color: 0x1E90FF })
+                );
+                }
+
               
               // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
@@ -1108,6 +957,7 @@ function AR() {
           burgerMenuBtn.style.display = 'none';
         }
         
+        // При размонтировании очищаем URL пользовательской модели
         return () => {
           // Очистка при размонтировании компонента
           window.removeEventListener('resize', handleResize);
@@ -1129,6 +979,15 @@ function AR() {
           
           // Обнуляем функцию запуска AR
           startARSessionFunction = null;
+          
+          // Очищаем URL пользовательской модели, если он был создан
+          if (userModel && userModel.url) {
+            try {
+              URL.revokeObjectURL(userModel.url);
+            } catch (e) {
+              console.error('Ошибка при освобождении URL объекта:', e);
+            }
+          }
         };
       } catch (error) {
         console.error('Ошибка при инициализации AR:', error);
@@ -1136,7 +995,7 @@ function AR() {
     };
 
     loadScripts();
-  }, [isDemoUser, token]);
+  }, [isDemoUser, token, userModel]);
 
   return (
     <div 
