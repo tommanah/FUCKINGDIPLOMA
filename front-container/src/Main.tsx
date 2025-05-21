@@ -1,18 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAppSelector, useAppDispatch } from './store/hooks';
-import { 
-  setToken, 
-  setShowAR, 
-  isAuthorized, 
-  setUserModel, 
-  addUserModel,
-  setPersistModels
-} from './store/authSlice';
+import { setToken, setShowAR, isAuthorized, setUserModel } from './store/authSlice';
 import Authorization from './pages/authorization/Authorization';
 import Map from './pages/playground/Map';
 // @ts-ignore Игнорируем ошибку импорта .jsx файла
 import AR, { startARSession } from './pages/playground/AR.jsx';
-import { v4 as uuidv4 } from 'uuid';
 import './Main.css';
 
 // Токен для неавторизованного входа (demo-доступ)
@@ -24,81 +16,8 @@ function Main() {
   const authorized = useAppSelector(isAuthorized);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userModel = useAppSelector(state => state.auth.userModel);
-  const userModels = useAppSelector(state => state.auth.userModels);
-  const persistModels = useAppSelector(state => (state.auth as any).persistModels) || false;
-  const [isARSupported, setIsARSupported] = useState(true);
-
-  // При первой загрузке проверяем, если это demo режим, отключаем сохранение моделей между сессиями
-  useEffect(() => {
-    if (authorized && authorized === (localStorage.getItem('token') === DEMO_TOKEN)) {
-      // Для демо-режима устанавливаем хранение моделей только для текущей сессии
-      try {
-        dispatch(setPersistModels(false));
-        console.log('Демо-режим: модели будут сохранены только для текущей сессии');
-      } catch (error) {
-        console.error('Ошибка при установке режима хранения моделей:', error);
-        // Резервный вариант - используем localStorage напрямую
-        localStorage.setItem('persistModels', 'false');
-      }
-    }
-  }, [authorized, dispatch]);
-
-  // Проверяем поддержку WebXR при загрузке компонента
-  useEffect(() => {
-    const checkXRSupport = async () => {
-      try {
-        if ('xr' in navigator) {
-          const isSupported = await (navigator as any).xr?.isSessionSupported('immersive-ar');
-          setIsARSupported(!!isSupported);
-          console.log('WebXR AR поддержка:', isSupported);
-        } else {
-          setIsARSupported(false);
-          console.log('WebXR не поддерживается в этом браузере');
-        }
-      } catch (error) {
-        console.error('Ошибка при проверке поддержки WebXR:', error);
-        setIsARSupported(false);
-      }
-    };
-    
-    checkXRSupport();
-  }, []);
-
-  // Очистка ресурсов и URL объектов при закрытии вкладки
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      console.log('Очистка ресурсов при закрытии вкладки...');
-      
-      // Освобождаем URL объекты для всех моделей перед закрытием вкладки
-      userModels.forEach(model => {
-        try {
-          if (model && model.url) {
-            URL.revokeObjectURL(model.url);
-            console.log(`URL объект для модели ${model.name} освобожден`);
-          }
-        } catch (error) {
-          console.error('Ошибка при освобождении URL объекта:', error);
-        }
-      });
-      
-      // Очищаем хранилище localStorage, если не нужно сохранять между сессиями
-      if (!persistModels) {
-        localStorage.removeItem('userModels');
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [userModels, persistModels]);
 
   const handleEnterAR = () => {
-    if (!isARSupported) {
-      alert('WebXR AR не поддерживается на вашем устройстве. Пожалуйста, попробуйте использовать другой браузер или устройство с поддержкой AR.');
-      return;
-    }
     dispatch(setShowAR(true));
   };
 
@@ -123,31 +42,11 @@ function Main() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Проверяем формат файла более надежным способом
-    const fileName = file.name.toLowerCase();
-    const fileType = file.type.toLowerCase();
-    
-    // На мобильных устройствах тип может быть пустым или некорректным,
-    // поэтому в первую очередь проверяем по расширению
-    const isGLB = fileName.endsWith('.glb') || fileType.includes('model/gltf-binary');
-    const isGLTF = fileName.endsWith('.gltf') || fileType.includes('model/gltf+json');
-    
-    // Если это мобильное устройство, доверяем input[accept] и не блокируем загрузку
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const isValidFormat = isGLB || isGLTF || (isMobile && file.type === '');
-    
-    console.log('Загрузка файла:', { 
-      fileName, 
-      fileType, 
-      isGLB, 
-      isGLTF,
-      isMobile,
-      isValidFormat 
-    });
-    
-    // На мобильных устройствах пропускаем проверку, если имя файла заканчивается на .glb или .gltf
-    if (!isValidFormat && !(isMobile && (fileName.endsWith('.glb') || fileName.endsWith('.gltf')))) {
-      alert(`Пожалуйста, выберите файл формата .glb или .gltf. \nТекущий формат: ${fileType || 'неизвестен'}`);
+    // Проверяем формат файла
+    const isValidFormat = file.name.toLowerCase().endsWith('.glb') || 
+                          file.name.toLowerCase().endsWith('.gltf');
+    if (!isValidFormat) {
+      alert('Пожалуйста, выберите файл формата .glb или .gltf');
       return;
     }
 
@@ -162,52 +61,31 @@ function Main() {
     reader.onload = function(e) {
       // Создаем URL из массива
       const contents = e.target?.result as ArrayBuffer;
-      const blob = new Blob([contents], { 
-        type: file.type || (fileName.endsWith('.glb') ? 'model/gltf-binary' : 'model/gltf+json') 
-      });
+      const blob = new Blob([contents]);
       const url = URL.createObjectURL(blob);
       
-      console.log('Модель успешно подготовлена:', { url, name: file.name });
+      // Сохраняем URL модели в Redux store
+      dispatch(setUserModel({
+        name: file.name,
+        url: url
+      }));
       
-      try {
-        // Сохраняем URL модели в Redux store с уникальным идентификатором
-        const modelId = uuidv4();
-        
-        const newModel = {
-          name: file.name,
-          url: url,
-          id: modelId
-        };
-        
-        dispatch(addUserModel(newModel));
-        console.log('Модель добавлена в хранилище:', newModel);
-      
-        // Удаляем индикатор загрузки
-        if (loadingNotification.parentNode) {
-          loadingNotification.parentNode.removeChild(loadingNotification);
-        }
-        
-        // Показываем уведомление об успешной загрузке
-        const notification = document.createElement('div');
-        notification.className = 'model-success-notification';
-        notification.textContent = `Модель "${file.name}" успешно загружена`;
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 3000);
-      } catch (error) {
-        console.error('Ошибка при добавлении модели в хранилище:', error);
-        
-        // Удаляем индикатор загрузки
-        if (loadingNotification.parentNode) {
-          loadingNotification.parentNode.removeChild(loadingNotification);
-        }
-        
-        alert('Произошла ошибка при загрузке модели. Попробуйте другой файл.');
+      // Удаляем индикатор загрузки
+      if (loadingNotification.parentNode) {
+        loadingNotification.parentNode.removeChild(loadingNotification);
       }
+      
+      // Показываем уведомление об успешной загрузке
+      const notification = document.createElement('div');
+      notification.className = 'model-success-notification';
+      notification.textContent = `Модель "${file.name}" успешно загружена`;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 3000);
     };
     
     reader.onerror = function(e) {
