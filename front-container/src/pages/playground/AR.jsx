@@ -264,6 +264,112 @@ function AR() {
         light.position.set(0.5, 1, 0.25);
         scene.add(light);
         
+        // Переменная для отслеживания текущего выбранного типа модели
+        let selectedModelType = "sunflower";
+        
+        // Предотвращаем срабатывание controller select при взаимодействии с UI
+        const isUIElement = (element) => {
+          // Проверяем, является ли элемент или его родители частью UI
+          let currentElement = element;
+          while (currentElement) {
+            if (currentElement.classList && 
+                (currentElement.classList.contains('model-select') || 
+                 currentElement.classList.contains('burger-menu-button') ||
+                 currentElement.tagName === 'SELECT' || 
+                 currentElement.tagName === 'BUTTON' ||
+                 currentElement.tagName === 'OPTION')) {
+              return true;
+            }
+            currentElement = currentElement.parentElement;
+          }
+          return false;
+        };
+        
+        // Глобальный флаг для отслеживания взаимодействия с UI
+        let interactingWithUI = false;
+        
+        // Обработчик событий для всех элементов UI, чтобы предотвратить всплытие событий
+        document.body.addEventListener('touchstart', (event) => {
+          if (isUIElement(event.target)) {
+            interactingWithUI = true;
+            console.log('Взаимодействие с UI элементом начато');
+            // Останавливаем всплытие события, чтобы предотвратить срабатывание controller select
+            event.stopPropagation();
+          }
+        }, true);
+        
+        document.body.addEventListener('touchend', (event) => {
+          if (isUIElement(event.target)) {
+            // Устанавливаем флаг обратно с задержкой, чтобы избежать ложных срабатываний
+            setTimeout(() => {
+              interactingWithUI = false;
+              console.log('Взаимодействие с UI элементом завершено');
+            }, 300);
+            event.stopPropagation();
+          }
+        }, true);
+        
+        document.body.addEventListener('click', (event) => {
+          if (isUIElement(event.target)) {
+            // Останавливаем всплытие события для клика также
+            interactingWithUI = true;
+            console.log('Клик по UI элементу');
+            event.stopPropagation();
+            
+            // Устанавливаем флаг обратно с задержкой
+            setTimeout(() => {
+              interactingWithUI = false;
+            }, 300);
+          }
+        }, true);
+        
+        // Добавляем обработчик для селектора моделей
+        const modelSelect = document.getElementById('modelSelect');
+        if (modelSelect) {
+          modelSelect.addEventListener('change', (event) => {
+            const select = event.target;
+            selectedModelType = select.value;
+            console.log('Выбран тип модели:', selectedModelType, 'options:', select.options, 'selectedIndex:', select.selectedIndex);
+            
+            // Дополнительная проверка
+            if (select.selectedIndex >= 0 && select.options[select.selectedIndex]) {
+              console.log('Выбранная опция:', select.options[select.selectedIndex].value);
+            }
+            
+            event.stopPropagation();
+            
+            // Устанавливаем флаг взаимодействия с UI
+            interactingWithUI = true;
+            setTimeout(() => {
+              interactingWithUI = false;
+            }, 300);
+          });
+          
+          // Устанавливаем обработчик на родительский контейнер для защиты от событий
+          const modelSelectContainer = document.querySelector('.model-select');
+          if (modelSelectContainer) {
+            modelSelectContainer.addEventListener('click', (event) => {
+              event.stopPropagation();
+              interactingWithUI = true;
+              setTimeout(() => {
+                interactingWithUI = false;
+              }, 300);
+            }, true);
+            
+            modelSelectContainer.addEventListener('touchstart', (event) => {
+              event.stopPropagation();
+              interactingWithUI = true;
+            }, true);
+            
+            modelSelectContainer.addEventListener('touchend', (event) => {
+              event.stopPropagation();
+              setTimeout(() => {
+                interactingWithUI = false;
+              }, 300);
+            }, true);
+          }
+        }
+        
         // Загружаем модели GLTF
         const gltfLoader = new GLTFLoader();
         
@@ -489,7 +595,13 @@ function AR() {
           // Обработка нажатий для размещения объектов
           const controller = renderer.xr.getController(0);
           
-          controller.addEventListener('select', () => {
+          controller.addEventListener('select', (event) => {
+            // Проверяем, не взаимодействует ли пользователь с UI
+            if (interactingWithUI) {
+              console.log('Игнорируем событие контроллера, т.к. пользователь взаимодействует с UI');
+              return;
+            }
+            
             const placementButton = document.getElementById('placementButton');
             const editButton = document.getElementById('editButton');
             
@@ -512,41 +624,66 @@ function AR() {
                 return;
               }
             
-              // Создаем выбранный объект
+              // Получаем текущее значение из селектора
               const modelSelect = document.getElementById('modelSelect');
-              const selectedModel = modelSelect ? modelSelect.value : 'cube';
+              let selectedModel = 'cube'; // Значение по умолчанию
+              
+              if (modelSelect) {
+                selectedModel = modelSelect.value;
+                // Дополнительная проверка для гарантии, что значение получено корректно
+                if (!selectedModel && modelSelect.selectedIndex >= 0 && modelSelect.options[modelSelect.selectedIndex]) {
+                  selectedModel = modelSelect.options[modelSelect.selectedIndex].value;
+                }
+              }
+              
+              console.log('Создание объекта типа:', selectedModel);
               
               let mesh;
               
-              if (selectedModel === 'sunflower' && loadedModels.sunflower) {
-                // Используем загруженную GLTF модель или статическую модель
-                mesh = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : loadedModels.sunflower;
+              switch(selectedModel) {
+                case 'sunflower':
+                  if (loadedModels.sunflower) {
+                    // Используем загруженную GLTF модель или статическую модель
+                    mesh = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : loadedModels.sunflower;
+                    
+                    // Масштабируем модель до нужного размера
+                    if (mesh instanceof THREE.Group) {
+                      // Для статической модели (THREE.Group)
+                      mesh.scale.set(0.2, 0.2, 0.2);
+                    } else {
+                      // Для загруженной GLTF модели
+                      mesh.scale.set(0.2, 0.2, 0.2);
+                    }
+                    
+                    console.log('Использование модели для подсолнуха:', mesh);
+                  } else {
+                    // Упрощенный подсолнух, если модель не загрузилась
+                    const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+                    const material = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+                    mesh = new THREE.Mesh(geometry, material);
+                  }
+                  break;
                 
-                // Масштабируем модель до нужного размера
-                if (mesh instanceof THREE.Group) {
-                  // Для статической модели (THREE.Group)
-                  mesh.scale.set(0.2, 0.2, 0.2);
-                } else {
-                  // Для загруженной GLTF модели
-                  mesh.scale.set(0.2, 0.2, 0.2);
-                }
+                case 'sphere':
+                  // Создаем сферу
+                  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+                  const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                  mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                  break;
                 
-                console.log('Использование модели для подсолнуха:', mesh);
-              } else if (selectedModel === 'sphere') {
-                // Создаем сферу
-                const geometry = new THREE.SphereGeometry(0.15, 32, 32);
-                const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-                mesh = new THREE.Mesh(geometry, material);
-              } else if (selectedModel === 'cube') {
-                // Создаем куб
-                const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-                mesh = new THREE.Mesh(geometry, material);
-              } else {
-                // Упрощенный подсолнух, если модель не загрузилась
-                const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
-                const material = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
-                mesh = new THREE.Mesh(geometry, material);
+                case 'cube':
+                  // Создаем куб
+                  const cubeGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                  const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                  mesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
+                  break;
+                
+                default:
+                  // Создаем простой объект по умолчанию
+                  const defaultGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+                  const defaultMaterial = new THREE.MeshStandardMaterial({ color: 0x1E90FF });
+                  mesh = new THREE.Mesh(defaultGeometry, defaultMaterial);
+                  break;
               }
               
               // Устанавливаем позицию объекта
