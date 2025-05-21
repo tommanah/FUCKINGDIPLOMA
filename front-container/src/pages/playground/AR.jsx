@@ -242,9 +242,10 @@ function AR() {
           demoNotice.style.display = 'block';
         }
         
-        // Добавляем селектор моделей
+        // Добавляем селектор моделей (скрытый изначально)
         const modelSelectContainer = document.createElement('div');
         modelSelectContainer.className = 'model-select';
+        modelSelectContainer.style.display = 'none'; // Скрываем по умолчанию
         modelSelectContainer.innerHTML = `
           <select id="modelSelect">
               <option value="sunflower">Подсолнух</option>
@@ -421,47 +422,29 @@ function AR() {
           { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf' }
         ];
         
-        // Функция для получения модели по типу (как в front/ar/index.html)
+        // Функция для получения модели по типу - максимально просто
         function getModelByType(type) {
-            console.log('Получаем модель по типу:', type);
-            let model;
+            console.log('Создаем модель:', type);
             
-            switch (type) {
-                case 'cube':
-                    model = new THREE.Mesh(
-                        new THREE.BoxGeometry(0.15, 0.15, 0.15),
-                        new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-                    );
-                    break;
-                case 'sphere':
-                    model = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.1, 32, 32),
-                        new THREE.MeshStandardMaterial({ color: 0xff0000 })
-                    );
-                    break;
-                case 'sunflower':
-                default:
-                    // Используем готовый объект подсолнуха или создаем простой 
-                    if (loadedModels && loadedModels.sunflower) {
-                        model = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : THREE.Object3D();
-                    } else {
-                        model = new THREE.Mesh(
-                            new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32),
-                            new THREE.MeshStandardMaterial({ color: 0xffff00 })
-                        );
-                    }
-                    break;
+            if (type === 'cube') {
+                return new THREE.Mesh(
+                    new THREE.BoxGeometry(0.2, 0.2, 0.2),
+                    new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+                );
+            } 
+            else if (type === 'sphere') {
+                return new THREE.Mesh(
+                    new THREE.SphereGeometry(0.15, 32, 32),
+                    new THREE.MeshStandardMaterial({ color: 0xff0000 })
+                );
             }
-            
-            // Добавляем тень под моделью
-            const shadowMesh = new THREE.Mesh(
-                new THREE.CircleGeometry(0.15, 32).rotateX(-Math.PI / 2),
-                new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })
-            );
-            shadowMesh.position.y = -0.1;
-            model.add(shadowMesh);
-            
-            return model;
+            else {
+                // Подсолнух по умолчанию
+                return new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.1, 0.1, 0.2, 32),
+                    new THREE.MeshStandardMaterial({ color: 0xffff00 })
+                );
+            }
         }
         
         // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
@@ -667,22 +650,14 @@ function AR() {
                 return;
               }
             
-              // Получаем текущее значение из селектора
+              // Получаем текущее значение из селектора - упрощенный вариант
               const modelSelect = document.getElementById('modelSelect');
-              let selectedModel = 'cube'; // Значение по умолчанию
+              const selectedType = modelSelect ? modelSelect.value : 'sunflower';
               
-              if (modelSelect) {
-                selectedModel = modelSelect.value;
-                // Дополнительная проверка для гарантии, что значение получено корректно
-                if (!selectedModel && modelSelect.selectedIndex >= 0 && modelSelect.options[modelSelect.selectedIndex]) {
-                  selectedModel = modelSelect.options[modelSelect.selectedIndex].value;
-                }
-              }
+              console.log('Выбранный тип:', selectedType);
               
-              console.log('Создание объекта типа:', selectedModel);
-              
-              // Получаем модель по типу используя нашу функцию
-              let mesh = getModelByType(selectedModel);
+              // Создаем нужную модель
+              const mesh = getModelByType(selectedType);
               
               // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
@@ -905,9 +880,9 @@ function AR() {
         const burgerMenuButtonEl = document.getElementById('burgerMenuButton');
         if (burgerMenuButtonEl) {
           burgerMenuButtonEl.addEventListener('click', () => {
+            // Переключаем видимость меню выбора моделей
             const modelSelectContainer = document.querySelector('.model-select');
             if (modelSelectContainer) {
-              // Переключаем видимость меню выбора моделей
               if (modelSelectContainer.style.display === 'none') {
                 modelSelectContainer.style.display = 'flex';
               } else {
