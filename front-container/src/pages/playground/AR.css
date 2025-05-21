@@ -1,7 +1,8 @@
 .model-select {
   position: fixed;
-  top: 60px;
-  left: 10px;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 9000;
   background: rgba(0, 0, 0, 0.7);
   padding: 15px;
@@ -10,7 +11,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-width: 200px;
+  min-width: 250px;
+  max-width: 90%;
 }
 
 .model-select select {
@@ -77,22 +79,6 @@
   outline: none !important;
   z-index: 999999 !important;
   cursor: pointer !important;
-}
-
-.demo-restrictions {
-  position: fixed;
-  bottom: 70px;
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: rgba(255, 87, 34, 0.9);
-  color: white;
-  padding: 10px 15px;
-  border-radius: 5px;
-  font-size: 14px;
-  z-index: 9999;
-  text-align: center;
-  max-width: 90%;
-  display: none;
 }
 
 .ar-container {

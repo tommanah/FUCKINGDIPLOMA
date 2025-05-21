@@ -57,14 +57,18 @@ function AR() {
         burgerMenuButton.textContent = '☰';
         uiContainer.appendChild(burgerMenuButton);
         
-        // Показываем надпись для демо-пользователя только на странице 3D карты
-        const demoNotice = document.createElement('div');
-        demoNotice.className = 'demo-restrictions';
-        demoNotice.textContent = 'Демо-режим: Ограниченная функциональность.';
-        uiContainer.appendChild(demoNotice);
-        
         if (isDemoUser) {
-          demoNotice.style.display = 'block';
+          // Показываем уведомление для демо-пользователя
+          const demoAlert = document.createElement('div');
+          demoAlert.className = 'model-error-notification';
+          demoAlert.textContent = 'Демо-режим: Ограниченная функциональность.';
+          document.body.appendChild(demoAlert);
+          
+          setTimeout(() => {
+            if (demoAlert.parentNode) {
+              demoAlert.parentNode.removeChild(demoAlert);
+            }
+          }, 3000);
         }
         
         // Загружаем модели GLTF
@@ -381,11 +385,6 @@ function AR() {
             burgerMenuBtn.style.display = 'block';
           }
           
-          // Скрываем надпись для демо-пользователя в режиме AR
-          if (demoNotice) {
-            demoNotice.style.display = 'none';
-          }
-          
           // Настраиваем hit-test для текущей сессии
           const session = renderer.xr.getSession();
           if (session) {
@@ -482,19 +481,8 @@ function AR() {
             // Режим размещения объектов
             if (placementButton && placementButton.classList.contains('active') && reticle.visible) {
               // Проверяем ограничения для демо-пользователей
-              if (isDemoUser && placedObjectsCount >= MAX_DEMO_OBJECTS) {
-                // Показываем сообщение о превышении лимита
-                const existingNotice = document.querySelector('.demo-restrictions');
-                if (existingNotice) {
-                  existingNotice.style.display = 'block';
-                  existingNotice.textContent = 
-                    'Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
-                  
-                  // Скрываем сообщение через 3 секунды
-                  setTimeout(() => {
-                    existingNotice.style.display = 'none';
-                  }, 3000);
-                }
+              if (isDemoUser && placedObjectsCount >= MAX_DEMO_OBJECTS) {                
+                    alert('Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.');
                 return;
               }
             
@@ -676,9 +664,18 @@ function AR() {
             burgerMenuBtn.style.display = 'none';
           }
           
-          // Показываем надпись для демо-пользователя снова на странице карты
-          if (isDemoUser && demoNotice) {
-            demoNotice.style.display = 'block';
+          // Показываем уведомление для демо-пользователя при выходе из AR
+          if (isDemoUser) {
+            const demoAlert = document.createElement('div');
+            demoAlert.className = 'model-error-notification';
+            demoAlert.textContent = 'Демо-режим: Ограниченная функциональность.';
+            document.body.appendChild(demoAlert);
+            
+            setTimeout(() => {
+              if (demoAlert.parentNode) {
+                demoAlert.parentNode.removeChild(demoAlert);
+              }
+            }, 3000);
           }
           
           // Сбрасываем выбранный объект
