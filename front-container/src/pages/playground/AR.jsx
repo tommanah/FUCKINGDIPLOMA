@@ -407,6 +407,46 @@ function AR() {
         let rotationStartPosition = { x: 0, y: 0 };
         let rotationAxis = 'y'; // по умолчанию вращаем вокруг оси Y
         
+        // Функция для отображения уведомлений
+        const showNotification = (message, duration = 2000) => {
+          const notification = document.createElement('div');
+          notification.className = 'ar-notification';
+          notification.textContent = message;
+          document.body.appendChild(notification);
+          
+          setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 500);
+          }, duration);
+        };
+
+        // Добавляем стили для уведомлений
+        const notificationStyle = document.createElement('style');
+        notificationStyle.innerHTML = `
+          .ar-notification {
+            position: fixed;
+            bottom: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            z-index: 1000;
+            transition: opacity 0.5s;
+            pointer-events: none;
+          }
+          .fade-out {
+            opacity: 0;
+          }
+        `;
+        document.head.appendChild(notificationStyle);
+        
         // Функция для обработки обнаруженных плоскостей
         const handlePlaneDetected = (plane) => {
           if (!planes.active) return;
@@ -628,7 +668,7 @@ function AR() {
             isRotating = false;
           });
           
-          // Функция для обновления положения указателя
+          // Обновляем функцию onXRFrame для добавления автоматического выбора объекта
           const onXRFrame = (time, frame) => {
             if (!frame) return session.requestAnimationFrame(onXRFrame);
             
@@ -655,6 +695,51 @@ function AR() {
               }
             } else {
               reticle.visible = false;
+            }
+            
+            // Автоматический выбор объекта в режиме вращения, если нет выбранного объекта
+            const rotateButton = document.getElementById('rotateButton');
+            if (rotateButton && rotateButton.classList.contains('active') && !selectedObject && placedObjects.length > 0) {
+              // Используем raycaster для выбора объекта в центре экрана
+              const raycaster = new THREE.Raycaster();
+              const center = new THREE.Vector2(0, 0); // Центр экрана
+              
+              // Получаем камеру из XR сессии
+              const camera = renderer.xr.getCamera();
+              raycaster.setFromCamera(center, camera);
+              
+              // Находим пересечения с размещенными объектами
+              const intersects = raycaster.intersectObjects(placedObjects, true);
+              
+              if (intersects.length > 0) {
+                // Находим корневой объект, который добавлен в placedObjects
+                let rootObject = intersects[0].object;
+                while (rootObject.parent && !placedObjects.includes(rootObject)) {
+                  rootObject = rootObject.parent;
+                }
+                
+                // Выбираем объект
+                selectedObject = rootObject;
+                
+                // Подсветка выбранного объекта
+                if (selectedObject.material) {
+                  selectedObject.material.originalColor = selectedObject.material.color.getHex();
+                  selectedObject.material.color.setHex(0xff0000);
+                } else if (selectedObject.children && selectedObject.children.length > 0) {
+                  // Если у объекта нет материала, но есть дочерние объекты с материалами
+                  selectedObject.children.forEach(child => {
+                    if (child.material) {
+                      child.material.originalColor = child.material.color.getHex();
+                      child.material.color.setHex(0xff0000);
+                    }
+                  });
+                }
+                
+                showNotification('Объект выбран. Проведите пальцем для вращения.');
+              } else {
+                // Если объект не найден в центре, покажем подсказку
+                showNotification('Наведите на объект и коснитесь его');
+              }
             }
             
             // Обновляем визуализацию плоскостей, если включено
@@ -806,6 +891,23 @@ function AR() {
               rotateButton.classList.add('active');
               placementButton.classList.remove('active');
               if (!isDemoUser) editButton.classList.remove('active');
+              
+              // Очищаем выбранный объект при переключении в режим вращения
+              if (selectedObject) {
+                if (selectedObject.material && selectedObject.material.originalColor) {
+                  selectedObject.material.color.setHex(selectedObject.material.originalColor);
+                } else if (selectedObject.children) {
+                  selectedObject.children.forEach(child => {
+                    if (child.material && child.material.originalColor) {
+                      child.material.color.setHex(child.material.originalColor);
+                    }
+                  });
+                }
+                selectedObject = null;
+              }
+              
+              // Показываем подсказку
+              showNotification('Режим вращения. Выберите объект или наведите на него');
               
               // Создаем элементы UI для выбора оси вращения, если их еще нет
               let axisSelector = document.getElementById('axisSelector');
