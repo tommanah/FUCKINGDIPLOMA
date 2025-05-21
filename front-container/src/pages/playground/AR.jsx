@@ -109,6 +109,7 @@ function AR() {
             z-index: 9999;
             text-align: center;
             max-width: 90%;
+            display: none;
         }
         
         .ar-container {
@@ -148,7 +149,24 @@ function AR() {
             font-weight: bold;
             font-size: 16px;
             z-index: 99999;
-            display: none;
+        }
+        
+        .show-planes-button {
+            position: fixed;
+            bottom: 75px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 99999;
+        }
+        
+        .show-planes-button.active {
+            background: #4CAF50;
         }
       `;
       document.head.appendChild(style);
@@ -156,6 +174,7 @@ function AR() {
       try {
         // Инициализация AR с использованием Three.js и WebXR
         const ARButton = await import('three/examples/jsm/webxr/ARButton.js').then(module => module.ARButton);
+        const GLTFLoader = await import('three/examples/jsm/loaders/GLTFLoader.js').then(module => module.GLTFLoader);
         
         // Создаем сцену, камеру и рендерер
         const scene = new THREE.Scene();
@@ -175,12 +194,15 @@ function AR() {
         uiContainer.className = 'ui-container';
         document.body.appendChild(uiContainer);
         
-        // Добавляем кнопку "Назад"
-        // const backButton = document.createElement('button');
-        // backButton.className = 'back-button';
-        // backButton.id = 'backButton';
-        // backButton.textContent = '← Назад';
-        // uiContainer.appendChild(backButton);
+        // Показываем надпись для демо-пользователя только на странице 3D карты
+        const demoNotice = document.createElement('div');
+        demoNotice.className = 'demo-restrictions';
+        demoNotice.textContent = 'Демо-режим: Ограниченная функциональность.';
+        uiContainer.appendChild(demoNotice);
+        
+        if (isDemoUser) {
+          demoNotice.style.display = 'block';
+        }
         
         // Добавляем селектор моделей
         const modelSelectContainer = document.createElement('div');
@@ -198,25 +220,63 @@ function AR() {
         `;
         uiContainer.appendChild(modelSelectContainer);
         
+        // Добавляем кнопку показа плоскостей
+        const showPlanesButton = document.createElement('button');
+        showPlanesButton.className = 'show-planes-button';
+        showPlanesButton.id = 'showPlanesButton';
+        showPlanesButton.textContent = '🔍 Показать плоскости';
+        uiContainer.appendChild(showPlanesButton);
+        
         // Добавляем кнопку остановки AR
         const stopArButton = document.createElement('button');
         stopArButton.className = 'stop-ar-button';
         stopArButton.id = 'stopArButton';
         stopArButton.textContent = 'Остановить AR';
+        stopArButton.style.display = 'none';
         uiContainer.appendChild(stopArButton);
-        
-        // Если демо-пользователь, показываем ограниченную функциональность
-        if (isDemoUser) {
-          const demoNotice = document.createElement('div');
-          demoNotice.className = 'demo-restrictions';
-          demoNotice.textContent = 'Демо-режим: Ограниченная функциональность.';
-          uiContainer.appendChild(demoNotice);
-        }
         
         // Добавляем свет
         const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
         light.position.set(0.5, 1, 0.25);
         scene.add(light);
+        
+        // Загружаем модели GLTF
+        const gltfLoader = new GLTFLoader();
+        const modelPaths = {
+          sunflower: '/pages/playground/ar/gltf/sunflower/sunflower.gltf',
+          reticle: '/pages/playground/ar/gltf/reticle/reticle.gltf'
+        };
+        
+        const loadedModels = {};
+        
+        // Функция для загрузки моделей
+        const loadModel = (name, path) => {
+          return new Promise((resolve, reject) => {
+            gltfLoader.load(
+              path,
+              (gltf) => {
+                loadedModels[name] = gltf.scene;
+                resolve(gltf.scene);
+              },
+              undefined,
+              (error) => {
+                console.error(`Ошибка при загрузке модели ${name}:`, error);
+                reject(error);
+              }
+            );
+          });
+        };
+        
+        // Загружаем модели
+        try {
+          await Promise.all([
+            loadModel('sunflower', modelPaths.sunflower),
+            loadModel('reticle', modelPaths.reticle)
+          ]);
+          console.log('Модели загружены успешно:', loadedModels);
+        } catch (error) {
+          console.error('Ошибка при загрузке моделей:', error);
+        }
         
         // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
         const xrButton = ARButton.createButton(renderer, {
@@ -226,6 +286,44 @@ function AR() {
         });
         document.body.appendChild(xrButton);
         
+        // Массив для хранения размещенных объектов
+        const placedObjects = [];
+        
+        // Хранение выбранного объекта
+        let selectedObject = null;
+        
+        // Переменная для хранения объектов плоскостей
+        const planes = {
+          meshes: new Map(),
+          materials: {
+            floor: new THREE.MeshBasicMaterial({ 
+              color: 0x4488ff, 
+              transparent: true, 
+              opacity: 0.2,
+              side: THREE.DoubleSide 
+            }),
+            wall: new THREE.MeshBasicMaterial({ 
+              color: 0xff8844, 
+              transparent: true, 
+              opacity: 0.2,
+              side: THREE.DoubleSide 
+            }),
+            ceiling: new THREE.MeshBasicMaterial({ 
+              color: 0x44ff88, 
+              transparent: true, 
+              opacity: 0.2,
+              side: THREE.DoubleSide 
+            }),
+            other: new THREE.MeshBasicMaterial({ 
+              color: 0xffffff, 
+              transparent: true, 
+              opacity: 0.2,
+              side: THREE.DoubleSide 
+            })
+          },
+          active: false
+        };
+        
         // Устанавливаем обработчики для отслеживания статуса AR сессии
         renderer.xr.addEventListener('sessionstart', () => {
           console.log('AR session started');
@@ -234,13 +332,71 @@ function AR() {
           // Скрываем кнопку ARButton и показываем элементы управления
           xrButton.style.display = 'none';
           modelSelectContainer.style.display = 'flex';
+          stopArButton.style.display = 'block';
+          showPlanesButton.style.display = 'block';
+          
+          // Скрываем надпись для демо-пользователя в режиме AR
+          if (demoNotice) {
+            demoNotice.style.display = 'none';
+          }
           
           // Настраиваем hit-test для текущей сессии
           const session = renderer.xr.getSession();
           if (session) {
             setupHitTest(session);
+            
+            // Добавляем обработчик для плоскостей, если поддерживается
+            if ('requestPlaneDetection' in session) {
+              session.requestPlaneDetection();
+              session.addEventListener('planedetected', (event) => {
+                const plane = event.plane;
+                handlePlaneDetected(plane);
+              });
+            }
           }
         });
+        
+        // Функция для обработки обнаруженных плоскостей
+        const handlePlaneDetected = (plane) => {
+          if (!planes.active) return;
+          
+          const geometry = new THREE.PlaneGeometry(1, 1);
+          let material;
+          
+          // Определяем тип плоскости и выбираем соответствующий материал
+          switch(plane.orientation) {
+            case 'horizontal' && plane.normal.y > 0:
+              material = planes.materials.floor;
+              break;
+            case 'horizontal' && plane.normal.y < 0:
+              material = planes.materials.ceiling;
+              break;
+            case 'vertical':
+              material = planes.materials.wall;
+              break;
+            default:
+              material = planes.materials.other;
+          }
+          
+          const mesh = new THREE.Mesh(geometry, material);
+          planes.meshes.set(plane.id, mesh);
+          scene.add(mesh);
+          
+          // Обновляем положение и размер плоскости
+          plane.addEventListener('update', () => {
+            const mesh = planes.meshes.get(plane.id);
+            if (mesh) {
+              // Обновляем размер
+              mesh.scale.set(plane.extent.width, plane.extent.height, 1);
+              
+              // Обновляем позицию и ориентацию
+              const matrix = new THREE.Matrix4();
+              matrix.fromArray(plane.transform.matrix);
+              mesh.position.setFromMatrixPosition(matrix);
+              mesh.quaternion.setFromRotationMatrix(matrix);
+            }
+          });
+        };
         
         // Настройка hit-test
         const setupHitTest = async (session) => {
@@ -266,15 +422,26 @@ function AR() {
           
           // Обработка нажатий для размещения объектов
           const controller = renderer.xr.getController(0);
+          
           controller.addEventListener('select', () => {
-            if (reticle.visible) {
+            const placementButton = document.getElementById('placementButton');
+            const editButton = document.getElementById('editButton');
+            
+            // Режим размещения объектов
+            if (placementButton && placementButton.classList.contains('active') && reticle.visible) {
               // Проверяем ограничения для демо-пользователей
               if (isDemoUser && placedObjectsCount >= MAX_DEMO_OBJECTS) {
                 // Показываем сообщение о превышении лимита
                 const existingNotice = document.querySelector('.demo-restrictions');
                 if (existingNotice) {
+                  existingNotice.style.display = 'block';
                   existingNotice.textContent = 
                     'Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
+                  
+                  // Скрываем сообщение через 3 секунды
+                  setTimeout(() => {
+                    existingNotice.style.display = 'none';
+                  }, 3000);
                 }
                 return;
               }
@@ -283,25 +450,81 @@ function AR() {
               const modelSelect = document.getElementById('modelSelect');
               const selectedModel = modelSelect ? modelSelect.value : 'cube';
               
-              let geometry;
-              if (selectedModel === 'cube') {
-                geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-              } else if (selectedModel === 'sphere') {
-                geometry = new THREE.SphereGeometry(0.15, 32, 32);
+              let mesh;
+              
+              if (selectedModel === 'sunflower' && loadedModels.sunflower) {
+                // Используем загруженную GLTF модель
+                mesh = loadedModels.sunflower.clone();
+                // Масштабируем модель до нужного размера
+                mesh.scale.set(0.2, 0.2, 0.2);
               } else {
-                // Подсолнух (упрощенно)
-                geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+                // Создаем простые геометрические фигуры
+                let geometry;
+                if (selectedModel === 'cube') {
+                  geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                } else if (selectedModel === 'sphere') {
+                  geometry = new THREE.SphereGeometry(0.15, 32, 32);
+                } else {
+                  // Упрощенный подсолнух, если модель не загрузилась
+                  geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+                }
+                
+                const material = new THREE.MeshStandardMaterial({
+                  color: selectedModel === 'sunflower' ? 0xFFD700 : 0x1E90FF
+                });
+                
+                mesh = new THREE.Mesh(geometry, material);
               }
               
-              const material = new THREE.MeshStandardMaterial({
-                color: selectedModel === 'sunflower' ? 0xFFD700 : 0x1E90FF
-              });
-              
-              const mesh = new THREE.Mesh(geometry, material);
+              // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
-              scene.add(mesh);
+              mesh.userData.selectable = true; // Отмечаем объект как доступный для выбора
               
+              scene.add(mesh);
+              placedObjects.push(mesh);
               placedObjectsCount++;
+            } 
+            // Режим редактирования - выбор объекта
+            else if (editButton && editButton.classList.contains('active') && !isDemoUser) {
+              // Проверяем, не выбрали ли мы какой-то объект
+              const raycaster = new THREE.Raycaster();
+              const tmpVector = new THREE.Vector2(0, 0); // Центр экрана
+              
+              // Устанавливаем луч из камеры
+              raycaster.setFromCamera(tmpVector, camera);
+              
+              // Получаем все объекты, которые пересекаются с лучом
+              const intersects = raycaster.intersectObjects(placedObjects, true);
+              
+              if (intersects.length > 0) {
+                // Если что-то выбрали
+                const selected = intersects[0].object;
+                
+                // Если ранее был выбранный объект, убираем подсветку
+                if (selectedObject) {
+                  // Восстанавливаем оригинальный материал
+                  if (selectedObject.material.originalColor) {
+                    selectedObject.material.color.setHex(selectedObject.material.originalColor);
+                  }
+                }
+                
+                // Выбираем новый объект
+                selectedObject = selected;
+                
+                // Запоминаем оригинальный цвет и подсвечиваем
+                if (selectedObject.material) {
+                  selectedObject.material.originalColor = selectedObject.material.color.getHex();
+                  selectedObject.material.color.setHex(0xff0000); // Красная подсветка
+                }
+              } else {
+                // Если клик по пустому месту, снимаем выделение
+                if (selectedObject) {
+                  if (selectedObject.material && selectedObject.material.originalColor) {
+                    selectedObject.material.color.setHex(selectedObject.material.originalColor);
+                  }
+                  selectedObject = null;
+                }
+              }
             }
           });
           
@@ -309,6 +532,7 @@ function AR() {
           const onXRFrame = (time, frame) => {
             if (!frame) return session.requestAnimationFrame(onXRFrame);
             
+            // Получаем результаты hit-test
             const hitTestResults = frame.getHitTestResults(hitTestSource);
             
             if (hitTestResults.length) {
@@ -319,12 +543,51 @@ function AR() {
                 const pose = hit.getPose(referenceSpace);
                 
                 if (pose) {
-                  reticle.visible = true;
-                  reticle.matrix.fromArray(pose.transform.matrix);
+                  // Показываем указатель только в режиме размещения
+                  const placementButton = document.getElementById('placementButton');
+                  if (placementButton && placementButton.classList.contains('active')) {
+                    reticle.visible = true;
+                    reticle.matrix.fromArray(pose.transform.matrix);
+                  } else {
+                    reticle.visible = false;
+                  }
                 }
               }
             } else {
               reticle.visible = false;
+            }
+            
+            // Обновляем визуализацию плоскостей, если включено
+            if (planes.active && planes.meshes.size > 0) {
+              planes.meshes.forEach((mesh) => {
+                mesh.visible = true;
+              });
+            } else {
+              planes.meshes.forEach((mesh) => {
+                mesh.visible = false;
+              });
+            }
+            
+            // Если есть выбранный объект и мы в режиме редактирования, обработка перемещения
+            const editButton = document.getElementById('editButton');
+            if (selectedObject && editButton && editButton.classList.contains('active') && !isDemoUser) {
+              // Здесь можно добавить обработку перемещения объекта
+              // Например, привязывать его к результатам hit-test или к позиции контроллера
+              if (hitTestResults.length > 0) {
+                const hit = hitTestResults[0];
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                if (referenceSpace) {
+                  const pose = hit.getPose(referenceSpace);
+                  if (pose) {
+                    // Обновляем позицию выбранного объекта
+                    selectedObject.position.set(
+                      pose.transform.position.x,
+                      pose.transform.position.y,
+                      pose.transform.position.z
+                    );
+                  }
+                }
+              }
             }
             
             renderer.render(scene, camera);
@@ -342,6 +605,20 @@ function AR() {
           // Показываем кнопку ARButton и скрываем элементы управления
           xrButton.style.display = 'block';
           modelSelectContainer.style.display = 'none';
+          stopArButton.style.display = 'none';
+          showPlanesButton.style.display = 'none';
+          
+          // Показываем надпись для демо-пользователя снова на странице карты
+          if (isDemoUser && demoNotice) {
+            demoNotice.style.display = 'block';
+          }
+          
+          // Сбрасываем выбранный объект
+          selectedObject = null;
+          
+          // Очищаем сцену от размещенных объектов
+          placedObjects.forEach(obj => scene.remove(obj));
+          placedObjects.length = 0;
         });
         
         // Анимация для 3D карты (не AR режим)
@@ -370,6 +647,14 @@ function AR() {
           placementButton.addEventListener('click', () => {
             placementButton.classList.add('active');
             editButton.classList.remove('active');
+            
+            // Сбрасываем выбор объекта при переключении в режим размещения
+            if (selectedObject) {
+              if (selectedObject.material && selectedObject.material.originalColor) {
+                selectedObject.material.color.setHex(selectedObject.material.originalColor);
+              }
+              selectedObject = null;
+            }
           });
           
           if (!isDemoUser) {
@@ -380,14 +665,15 @@ function AR() {
           }
         }
         
-        // Добавляем обработчик для кнопки "Назад"
-        const backButtonEl = document.getElementById('backButton');
-        if (backButtonEl) {
-          backButtonEl.addEventListener('click', () => {
-            if (renderer.xr.isPresenting) {
-              renderer.xr.getSession()?.end();
+        // Добавляем обработчик для кнопки показа плоскостей
+        const showPlanesButtonEl = document.getElementById('showPlanesButton');
+        if (showPlanesButtonEl) {
+          showPlanesButtonEl.addEventListener('click', () => {
+            planes.active = !planes.active;
+            if (planes.active) {
+              showPlanesButtonEl.classList.add('active');
             } else {
-              window.history.back();
+              showPlanesButtonEl.classList.remove('active');
             }
           });
         }
@@ -404,7 +690,7 @@ function AR() {
         
         // При начальной загрузке скрываем элементы управления AR
         modelSelectContainer.style.display = 'none';
-        stopArButton.style.display = 'none';
+        showPlanesButton.style.display = 'none';
         
         return () => {
           // Очистка при размонтировании компонента
