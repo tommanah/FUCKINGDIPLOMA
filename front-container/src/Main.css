@@ -38,4 +38,36 @@
   width: 100%;
   height: 100%;
   z-index: 100;
+}
+
+.mode-toggle {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  padding: 5px;
+  z-index: 9999;
+}
+
+.mode-button {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.mode-button.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.mode-button:not(.active):hover {
+  background-color: rgba(255, 255, 255, 0.2);
 } 

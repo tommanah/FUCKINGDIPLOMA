@@ -2,6 +2,17 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useAppSelector } from '../../store/hooks';
 
+// Глобальная переменная для хранения функции запуска AR
+let startARSessionFunction = null;
+
+// Экспортируем функцию для внешнего использования
+export function startARSession() {
+  if (startARSessionFunction) {
+    return startARSessionFunction();
+  }
+  return false;
+}
+
 function AR() {
   const mountRef = useRef(null);
   const token = useAppSelector(state => state.auth.token);
@@ -45,19 +56,20 @@ function AR() {
             gap: 10px;
             justify-content: center;
             margin-top: 5px;
+            flex-wrap: wrap;
         }
         
         .model-select .buttons-container button {
-            padding: 8px 16px;
+            padding: 6px 10px;
             border: none;
             border-radius: 5px;
             background: white;
             color: black;
-            font-size: 14px;
+            font-size: 12px;
             cursor: pointer;
             transition: all 0.3s;
-            flex: 1;
             text-align: center;
+            min-width: 70px;
         }
         
         .model-select .buttons-container button.active {
@@ -135,6 +147,21 @@ function AR() {
             z-index: 99999;
         }
 
+        .burger-menu-button {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 99999;
+        }
+        
         .stop-ar-button {
             position: fixed;
             bottom: 20px;
@@ -152,18 +179,22 @@ function AR() {
         }
         
         .show-planes-button {
-            position: fixed;
-            bottom: 75px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
+            position: relative;
+            background: white;
+            color: black;
             border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
+            padding: 6px 10px;
+            border-radius: 5px;
             cursor: pointer;
-            font-weight: bold;
-            z-index: 99999;
+            font-size: 12px;
+            min-width: 70px;
         }
+        
+        .show-planes-button.active {
+            background: #4CAF50;
+            color: white;
+        }
+
         
         .show-planes-button.active {
             background: #4CAF50;
@@ -194,6 +225,13 @@ function AR() {
         uiContainer.className = 'ui-container';
         document.body.appendChild(uiContainer);
         
+        // Добавляем кнопку бургер-меню
+        const burgerMenuButton = document.createElement('button');
+        burgerMenuButton.className = 'burger-menu-button';
+        burgerMenuButton.id = 'burgerMenuButton';
+        burgerMenuButton.textContent = '☰';
+        uiContainer.appendChild(burgerMenuButton);
+        
         // Показываем надпись для демо-пользователя только на странице 3D карты
         const demoNotice = document.createElement('div');
         demoNotice.className = 'demo-restrictions';
@@ -216,6 +254,7 @@ function AR() {
           <div class="buttons-container">
               <button id="placementButton" class="active">📦 Разместить</button>
               <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+              <button id="showPlanesButton">🔍 Плоскости</button>
           </div>
         `;
         uiContainer.appendChild(modelSelectContainer);
@@ -224,7 +263,7 @@ function AR() {
         const showPlanesButton = document.createElement('button');
         showPlanesButton.className = 'show-planes-button';
         showPlanesButton.id = 'showPlanesButton';
-        showPlanesButton.textContent = '🔍 Показать плоскости';
+        showPlanesButton.textContent = '🔍 Плоскости';
         uiContainer.appendChild(showPlanesButton);
         
         // Добавляем кнопку остановки AR
@@ -242,41 +281,54 @@ function AR() {
         
         // Загружаем модели GLTF
         const gltfLoader = new GLTFLoader();
-        const modelPaths = {
-          sunflower: '/pages/playground/ar/gltf/sunflower/sunflower.gltf',
-          reticle: '/pages/playground/ar/gltf/reticle/reticle.gltf'
-        };
         
-        const loadedModels = {};
-        
-        // Функция для загрузки моделей
-        const loadModel = (name, path) => {
-          return new Promise((resolve, reject) => {
-            gltfLoader.load(
-              path,
-              (gltf) => {
-                loadedModels[name] = gltf.scene;
-                resolve(gltf.scene);
-              },
-              undefined,
-              (error) => {
-                console.error(`Ошибка при загрузке модели ${name}:`, error);
-                reject(error);
-              }
-            );
+        // Создаем статические модели вместо загрузки GLTF
+        const createStaticModels = () => {
+          console.log('Создаем статические модели вместо загрузки GLTF');
+          
+          // Создаем подсолнух
+          const sunflowerGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+          const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x008800 });
+          const stem = new THREE.Mesh(sunflowerGeometry, stemMaterial);
+          
+          // Добавляем головку подсолнуха
+          const headGeometry = new THREE.SphereGeometry(0.15, 32, 32);
+          const headMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+          const head = new THREE.Mesh(headGeometry, headMaterial);
+          head.position.set(0, 0.2, 0);
+          
+          // Группируем элементы
+          const sunflowerModel = new THREE.Group();
+          sunflowerModel.add(stem);
+          sunflowerModel.add(head);
+          
+          // Создаем указатель
+          const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+          const reticleMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x0099ff,
+            transparent: true,
+            opacity: 0.7
           });
+          const reticleModel = new THREE.Mesh(reticleGeometry, reticleMaterial);
+          
+          return {
+            sunflower: sunflowerModel,
+            reticle: reticleModel
+          };
         };
         
-        // Загружаем модели
-        try {
-          await Promise.all([
-            loadModel('sunflower', modelPaths.sunflower),
-            loadModel('reticle', modelPaths.reticle)
-          ]);
-          console.log('Модели загружены успешно:', loadedModels);
-        } catch (error) {
-          console.error('Ошибка при загрузке моделей:', error);
-        }
+        // Сразу создаем статичные модели для использования, пока загружаются GLTF
+        const loadedModels = createStaticModels();
+        
+        // Список всех возможных путей для попытки загрузки
+        const possiblePaths = [
+          { sunflower: '../ar/gltf/sunflower/sunflower.gltf', reticle: '../ar/gltf/reticle/reticle.gltf' },
+          { sunflower: 'ar/gltf/sunflower/sunflower.gltf', reticle: 'ar/gltf/reticle/reticle.gltf' },
+          { sunflower: '/ar/gltf/sunflower/sunflower.gltf', reticle: '/ar/gltf/reticle/reticle.gltf' },
+          { sunflower: '/pages/playground/ar/gltf/sunflower/sunflower.gltf', reticle: '/pages/playground/ar/gltf/reticle/reticle.gltf' },
+          { sunflower: './ar/gltf/sunflower/sunflower.gltf', reticle: './ar/gltf/reticle/reticle.gltf' },
+          { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf' }
+        ];
         
         // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
         const xrButton = ARButton.createButton(renderer, {
@@ -284,7 +336,31 @@ function AR() {
           optionalFeatures: ['dom-overlay'],
           domOverlay: { root: document.body }
         });
+        xrButton.textContent = 'WebXR Start AR';
+        xrButton.id = 'ARButton'; // Устанавливаем ID для программного доступа
         document.body.appendChild(xrButton);
+        
+        // Функция для программного запуска AR сессии
+        const startARSession = () => {
+          console.log('Запускаем AR сессию программно');
+          if (xrButton) {
+            xrButton.click();
+            return true;
+          }
+          return false;
+        };
+        
+        // Сохраняем функцию запуска в глобальную переменную
+        startARSessionFunction = startARSession;
+        
+        // Получаем кнопку Включить AR из Main.tsx и имитируем нажатие на xrButton
+        document.querySelectorAll('button').forEach(button => {
+          if (button.textContent.includes('Включить AR')) {
+            button.addEventListener('click', () => {
+              startARSession();
+            });
+          }
+        });
         
         // Массив для хранения размещенных объектов
         const placedObjects = [];
@@ -333,7 +409,12 @@ function AR() {
           xrButton.style.display = 'none';
           modelSelectContainer.style.display = 'flex';
           stopArButton.style.display = 'block';
-          showPlanesButton.style.display = 'block';
+          
+          // Показываем бургер-меню в режиме AR
+          const burgerMenuBtn = document.getElementById('burgerMenuButton');
+          if (burgerMenuBtn) {
+            burgerMenuBtn.style.display = 'block';
+          }
           
           // Скрываем надпись для демо-пользователя в режиме AR
           if (demoNotice) {
@@ -453,26 +534,33 @@ function AR() {
               let mesh;
               
               if (selectedModel === 'sunflower' && loadedModels.sunflower) {
-                // Используем загруженную GLTF модель
-                mesh = loadedModels.sunflower.clone();
+                // Используем загруженную GLTF модель или статическую модель
+                mesh = loadedModels.sunflower.clone ? loadedModels.sunflower.clone() : loadedModels.sunflower;
+                
                 // Масштабируем модель до нужного размера
-                mesh.scale.set(0.2, 0.2, 0.2);
-              } else {
-                // Создаем простые геометрические фигуры
-                let geometry;
-                if (selectedModel === 'cube') {
-                  geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                } else if (selectedModel === 'sphere') {
-                  geometry = new THREE.SphereGeometry(0.15, 32, 32);
+                if (mesh instanceof THREE.Group) {
+                  // Для статической модели (THREE.Group)
+                  mesh.scale.set(0.2, 0.2, 0.2);
                 } else {
-                  // Упрощенный подсолнух, если модель не загрузилась
-                  geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+                  // Для загруженной GLTF модели
+                  mesh.scale.set(0.2, 0.2, 0.2);
                 }
                 
-                const material = new THREE.MeshStandardMaterial({
-                  color: selectedModel === 'sunflower' ? 0xFFD700 : 0x1E90FF
-                });
-                
+                console.log('Использование модели для подсолнуха:', mesh);
+              } else if (selectedModel === 'sphere') {
+                // Создаем сферу
+                const geometry = new THREE.SphereGeometry(0.15, 32, 32);
+                const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+                mesh = new THREE.Mesh(geometry, material);
+              } else if (selectedModel === 'cube') {
+                // Создаем куб
+                const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+                mesh = new THREE.Mesh(geometry, material);
+              } else {
+                // Упрощенный подсолнух, если модель не загрузилась
+                const geometry = new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32);
+                const material = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
                 mesh = new THREE.Mesh(geometry, material);
               }
               
@@ -606,7 +694,12 @@ function AR() {
           xrButton.style.display = 'block';
           modelSelectContainer.style.display = 'none';
           stopArButton.style.display = 'none';
-          showPlanesButton.style.display = 'none';
+          
+          // Скрываем бургер-меню при выходе из AR
+          const burgerMenuBtn = document.getElementById('burgerMenuButton');
+          if (burgerMenuBtn) {
+            burgerMenuBtn.style.display = 'none';
+          }
           
           // Показываем надпись для демо-пользователя снова на странице карты
           if (isDemoUser && demoNotice) {
@@ -688,9 +781,30 @@ function AR() {
           });
         }
         
+        // Добавляем обработчик для кнопки бургер-меню
+        const burgerMenuButtonEl = document.getElementById('burgerMenuButton');
+        if (burgerMenuButtonEl) {
+          burgerMenuButtonEl.addEventListener('click', () => {
+            const modelSelectContainer = document.querySelector('.model-select');
+            if (modelSelectContainer) {
+              // Переключаем видимость меню выбора моделей
+              if (modelSelectContainer.style.display === 'none') {
+                modelSelectContainer.style.display = 'flex';
+              } else {
+                modelSelectContainer.style.display = 'none';
+              }
+            }
+          });
+        }
+        
         // При начальной загрузке скрываем элементы управления AR
         modelSelectContainer.style.display = 'none';
-        showPlanesButton.style.display = 'none';
+        
+        // Скрываем бургер-меню изначально
+        const burgerMenuBtn = document.getElementById('burgerMenuButton');
+        if (burgerMenuBtn) {
+          burgerMenuBtn.style.display = 'none';
+        }
         
         return () => {
           // Очистка при размонтировании компонента
@@ -710,6 +824,9 @@ function AR() {
           if (style && style.parentNode) {
             style.parentNode.removeChild(style);
           }
+          
+          // Обнуляем функцию запуска AR
+          startARSessionFunction = null;
         };
       } catch (error) {
         console.error('Ошибка при инициализации AR:', error);
