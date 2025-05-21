@@ -10,9 +10,7 @@ import './notifications.css';
 function Map() {
   const mountRef = useRef<HTMLDivElement>(null);
   const userModel = useAppSelector(state => state.auth.userModel);
-  const userModels = useAppSelector(state => state.auth.userModels || []);
   const [modelLoaded, setModelLoaded] = useState(false);
-  const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -130,24 +128,8 @@ function Map() {
       const panel = document.createElement('div');
       panel.id = 'transform-info-panel';
       
-      // Создаем выпадающий список для выбора модели, если у нас есть несколько моделей
-      let modelSelectHtml = '';
-      if (userModels && userModels.length > 1) {
-        const options = userModels.map(model => 
-          `<option value="${model.id}" ${selectedModelId === model.id ? 'selected' : ''}>${model.name}</option>`
-        ).join('');
-        
-        modelSelectHtml = `
-          <div class="model-select-wrapper">
-            <label for="map-model-select">Выберите модель:</label>
-            <select id="map-model-select">${options}</select>
-          </div>
-        `;
-      }
-      
       panel.innerHTML = `
         <h3>Управление моделью</h3>
-        ${modelSelectHtml}
         <div style="margin-bottom: 10px;">
           <button id="translate-mode" class="transform-btn active">Перемещение</button>
           <button id="rotate-mode" class="transform-btn">Вращение</button>
@@ -195,21 +177,6 @@ function Map() {
           scaleBtn.classList.add('active');
         });
       }
-      
-      // Добавляем обработчик для выбора модели
-      const modelSelect = document.getElementById('map-model-select') as HTMLSelectElement;
-      if (modelSelect) {
-        modelSelect.addEventListener('change', () => {
-          const selectedId = modelSelect.value;
-          setSelectedModelId(selectedId);
-          
-          // Загружаем выбранную модель
-          const selectedModel = userModels.find(model => model.id === selectedId);
-          if (selectedModel) {
-            loadUserModel(selectedModel.url, selectedModel);
-          }
-        });
-      }
     };
     
     // Переменная для хранения загруженной пользовательской модели
@@ -219,7 +186,7 @@ function Map() {
     const gltfLoader = new GLTFLoader();
 
     // Функция для загрузки модели
-    const loadUserModel = (url: string, modelData?: any) => {
+    const loadUserModel = (url: string) => {
       // Показываем индикатор загрузки
       const loadingNotification = document.createElement('div');
       loadingNotification.className = 'model-loading-notification';
@@ -260,11 +227,6 @@ function Map() {
             // Устанавливаем флаг, что модель загружена
             setModelLoaded(true);
             
-            // Сохраняем ID модели, если передана
-            if (modelData && modelData.id) {
-              setSelectedModelId(modelData.id);
-            }
-            
             // Удаляем индикатор загрузки
             if (loadingNotification.parentNode) {
               loadingNotification.parentNode.removeChild(loadingNotification);
@@ -298,7 +260,15 @@ function Map() {
             }
             
             const errorNotification = document.createElement('div');
-            errorNotification.className = 'model-error-notification';
+            errorNotification.style.position = 'fixed';
+            errorNotification.style.bottom = '100px';
+            errorNotification.style.left = '50%';
+            errorNotification.style.transform = 'translateX(-50%)';
+            errorNotification.style.background = 'rgba(255, 0, 0, 0.8)';
+            errorNotification.style.color = 'white';
+            errorNotification.style.padding = '10px 15px';
+            errorNotification.style.borderRadius = '5px';
+            errorNotification.style.zIndex = '99999';
             errorNotification.textContent = 'Ошибка при загрузке модели. Пожалуйста, попробуйте другую модель.';
             document.body.appendChild(errorNotification);
             
@@ -318,13 +288,7 @@ function Map() {
     };
 
     // Загружаем модель пользователя, если она доступна
-    if (userModels && userModels.length > 0) {
-      // Если есть несколько моделей, загружаем первую из списка
-      const modelToLoad = userModels[0];
-      setSelectedModelId(modelToLoad.id);
-      loadUserModel(modelToLoad.url, modelToLoad);
-    } else if (userModel && userModel.url) {
-      // Для обратной совместимости
+    if (userModel && userModel.url) {
       console.log('Доступна пользовательская модель:', userModel);
       loadUserModel(userModel.url);
     } else {
@@ -372,7 +336,7 @@ function Map() {
         scene.remove(loadedUserModel);
       }
     };
-  }, [userModel, userModels, selectedModelId]); // зависимости: userModel, userModels и selectedModelId
+  }, [userModel]); // зависимости: только userModel
 
   return <div ref={mountRef} style={{ width: '100%', height: '100vh' }} />;
 }

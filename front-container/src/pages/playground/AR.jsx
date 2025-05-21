@@ -15,17 +15,12 @@ export function startARSession() {
   return false;
 }
 
-// Максимальное количество объектов для демо-пользователя
-const MAX_DEMO_OBJECTS = 10;
-
 function AR() {
   const mountRef = useRef(null);
   const token = useAppSelector(state => state.auth.token);
   const userModel = useAppSelector(state => state.auth.userModel);
-  const userModels = useAppSelector(state => state.auth.userModels || []);
   const isDemoUser = token === 'demo-token-no-permissions';
   const [arActive, setArActive] = useState(false);
-  const [placedObjectsCount, setPlacedObjectsCount] = useState(0);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -72,6 +67,9 @@ function AR() {
           demoNotice.style.display = 'block';
         }
         
+        // Загружаем модели GLTF
+        const gltfLoader = new GLTFLoader();
+        
         // Сразу создаем объект для хранения моделей
         const loadedModels = {
           sunflower: null,
@@ -86,30 +84,18 @@ function AR() {
         // Проверяем, есть ли загруженная пользователем модель
         const hasUserModel = userModel && userModel.url;
         
-        // Создаем опции для всех доступных пользовательских моделей
-        let userModelsOptions = '';
-        if (userModels && userModels.length > 0) {
-          userModelsOptions = userModels.map(model => 
-            `<option value="userModel-${model.id}">Модель: ${model.name}</option>`
-          ).join('');
-        } else if (hasUserModel) {
-          // Поддержка обратной совместимости для старой версии с одной моделью
-          userModelsOptions = `<option value="userModel">Модель: ${userModel.name}</option>`;
-        }
-        
         const modelSelectHTML = `
           <select id="modelSelect">
               <option value="sunflower">Подсолнух</option>
               <option value="cube">Куб</option>
               <option value="sphere">Сфера</option>
-              ${userModelsOptions}
+              ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
           <div class="buttons-container">
               <button id="placementButton" class="active">📦 Разместить</button>
               <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
               <button id="showPlanesButton">🔍 Плоскости</button>
           </div>
-          ${isDemoUser ? `<div class="model-limit-info">Размещено: ${placedObjectsCount}/${MAX_DEMO_OBJECTS} объектов (демо-режим)</div>` : ''}
         `;
         
         modelSelectContainer.innerHTML = modelSelectHTML;
@@ -123,39 +109,9 @@ function AR() {
         // Переменная для отслеживания текущего выбранного типа модели
         let selectedModelType = "sunflower";
         
-        // Загружаем пользовательские модели
-        if (userModels && userModels.length > 0) {
-          console.log('Загружаем пользовательские модели:', userModels.length);
-          
-          // Создаем загрузчик GLTF для моделей
-          const gltfLoader = new GLTFLoader();
-          
-          userModels.forEach(model => {
-            try {
-              gltfLoader.load(model.url, 
-                function(gltf) {
-                  console.log(`Модель ${model.name} успешно загружена`);
-                  // Сохраняем модель с её ID
-                  loadedModels[`userModel-${model.id}`] = gltf.scene;
-                },
-                function(xhr) {
-                  console.log(`Прогресс загрузки модели ${model.name}:`, (xhr.loaded / xhr.total * 100) + '%');
-                },
-                function(error) {
-                  console.error(`Ошибка при загрузке модели ${model.name}:`, error);
-                }
-              );
-            } catch (error) {
-              console.error(`Ошибка при загрузке модели ${model.name}:`, error);
-            }
-          });
-        } else if (hasUserModel) {
-          // Обратная совместимость для одной модели
+        // Если есть пользовательская модель, загружаем её
+        if (hasUserModel) {
           console.log('Загружаем пользовательскую модель из Main:', userModel.name);
-          
-          // Создаем загрузчик GLTF для модели
-          const gltfLoader = new GLTFLoader();
-          
           try {
             gltfLoader.load(userModel.url, 
               function(gltf) {
@@ -488,16 +444,6 @@ function AR() {
           });
         };
         
-        // Обновляем счетчик размещенных объектов
-        const updatePlacedObjectsCounter = () => {
-          if (isDemoUser) {
-            const counterElement = document.querySelector('.model-limit-info');
-            if (counterElement) {
-              counterElement.textContent = `Размещено: ${placedObjectsCount}/${MAX_DEMO_OBJECTS} объектов (демо-режим)`;
-            }
-          }
-        };
-        
         // Настройка hit-test
         const setupHitTest = async (session) => {
           const viewerSpace = await session.requestReferenceSpace('viewer');
@@ -515,6 +461,10 @@ function AR() {
           reticle.matrixAutoUpdate = false;
           reticle.visible = false;
           scene.add(reticle);
+          
+          // Максимальное количество объектов для демо-пользователя
+          const MAX_DEMO_OBJECTS = 3;
+          let placedObjectsCount = 0;
           
           // Обработка нажатий для размещения объектов
           const controller = renderer.xr.getController(0);
@@ -538,7 +488,7 @@ function AR() {
                 if (existingNotice) {
                   existingNotice.style.display = 'block';
                   existingNotice.textContent = 
-                    'Лимит размещения объектов достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
+                    'Лимит достигнут! Зарегистрируйтесь для размещения большего количества объектов.';
                   
                   // Скрываем сообщение через 3 секунды
                   setTimeout(() => {
@@ -564,34 +514,30 @@ function AR() {
               
               let mesh;
 
-              // Проверяем, если это пользовательская модель с id
-              if (selectedModel.startsWith('userModel-') && loadedModels[selectedModel]) {
+                if (loadedModels[selectedModel]) {
                 mesh = loadedModels[selectedModel].clone();
                 mesh.scale.set(0.2, 0.2, 0.2);
-                console.log(`Используем пользовательскую модель: ${selectedModel}`);
-              } else if (loadedModels[selectedModel]) {
-                mesh = loadedModels[selectedModel].clone();
-                mesh.scale.set(0.2, 0.2, 0.2);
-                console.log(`Используем модель: ${selectedModel}`);
-              } else if (selectedModel === 'userModel') {
+                console.log(`Используем модель: ${selectedModel}`, mesh);
+                } else if (selectedModel === 'userModel') {
                 if (loadedModels.userModel) {
-                  mesh = loadedModels.userModel.clone();
-                  mesh.scale.set(0.2, 0.2, 0.2);
-                  console.log('Размещаем пользовательскую модель');
+                    mesh = loadedModels.userModel.clone();
+                    mesh.scale.set(0.2, 0.2, 0.2);
+                    console.log('Размещаем пользовательскую модель');
                 } else {
-                  console.warn('Пользовательская модель не найдена, используем запасной вариант');
-                  mesh = new THREE.Mesh(
+                    console.warn('Пользовательская модель не найдена, используем запасной вариант');
+                    mesh = new THREE.Mesh(
                     new THREE.BoxGeometry(0.2, 0.2, 0.2),
                     new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-                  );
+                    );
                 }
-              } else {
+                } else {
                 console.warn('Неизвестный тип модели:', selectedModel, '- создаём резервный куб');
                 mesh = new THREE.Mesh(
-                  new THREE.BoxGeometry(0.15, 0.15, 0.15),
-                  new THREE.MeshStandardMaterial({ color: 0x1E90FF })
+                    new THREE.BoxGeometry(0.15, 0.15, 0.15),
+                    new THREE.MeshStandardMaterial({ color: 0x1E90FF })
                 );
-              }
+                }
+
               
               // Устанавливаем позицию объекта
               mesh.position.setFromMatrixPosition(reticle.matrix);
@@ -599,10 +545,7 @@ function AR() {
               
               scene.add(mesh);
               placedObjects.push(mesh);
-              
-              // Увеличиваем счетчик и обновляем отображение
-              setPlacedObjectsCount(prev => prev + 1);
-              updatePlacedObjectsCounter();
+              placedObjectsCount++;
             } 
             // Режим редактирования - выбор объекта
             else if (editButton && editButton.classList.contains('active') && !isDemoUser) {
@@ -744,9 +687,6 @@ function AR() {
           // Очищаем сцену от размещенных объектов
           placedObjects.forEach(obj => scene.remove(obj));
           placedObjects.length = 0;
-          
-          // Сбрасываем счетчик размещенных объектов
-          setPlacedObjectsCount(0);
         });
         
         // Анимация для 3D карты (не AR режим)
@@ -876,7 +816,7 @@ function AR() {
     };
 
     loadScripts();
-  }, [isDemoUser, token, userModel, userModels, placedObjectsCount]);
+  }, [isDemoUser, token, userModel]);
 
   return (
     <div 
