@@ -1,6 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAppSelector, useAppDispatch } from './store/hooks';
-import { setToken, setShowAR, isAuthorized, setUserModel, addUserModel } from './store/authSlice';
+import { 
+  setToken, 
+  setShowAR, 
+  isAuthorized, 
+  setUserModel, 
+  addUserModel,
+  setPersistModels
+} from './store/authSlice';
 import Authorization from './pages/authorization/Authorization';
 import Map from './pages/playground/Map';
 // @ts-ignore Игнорируем ошибку импорта .jsx файла
@@ -17,7 +24,24 @@ function Main() {
   const authorized = useAppSelector(isAuthorized);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userModel = useAppSelector(state => state.auth.userModel);
+  const userModels = useAppSelector(state => state.auth.userModels);
+  const persistModels = useAppSelector(state => (state.auth as any).persistModels) || false;
   const [isARSupported, setIsARSupported] = useState(true);
+
+  // При первой загрузке проверяем, если это demo режим, отключаем сохранение моделей между сессиями
+  useEffect(() => {
+    if (authorized && authorized === (localStorage.getItem('token') === DEMO_TOKEN)) {
+      // Для демо-режима устанавливаем хранение моделей только для текущей сессии
+      try {
+        dispatch(setPersistModels(false));
+        console.log('Демо-режим: модели будут сохранены только для текущей сессии');
+      } catch (error) {
+        console.error('Ошибка при установке режима хранения моделей:', error);
+        // Резервный вариант - используем localStorage напрямую
+        localStorage.setItem('persistModels', 'false');
+      }
+    }
+  }, [authorized, dispatch]);
 
   // Проверяем поддержку WebXR при загрузке компонента
   useEffect(() => {
@@ -39,6 +63,36 @@ function Main() {
     
     checkXRSupport();
   }, []);
+
+  // Очистка ресурсов и URL объектов при закрытии вкладки
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      console.log('Очистка ресурсов при закрытии вкладки...');
+      
+      // Освобождаем URL объекты для всех моделей перед закрытием вкладки
+      userModels.forEach(model => {
+        try {
+          if (model && model.url) {
+            URL.revokeObjectURL(model.url);
+            console.log(`URL объект для модели ${model.name} освобожден`);
+          }
+        } catch (error) {
+          console.error('Ошибка при освобождении URL объекта:', error);
+        }
+      });
+      
+      // Очищаем хранилище localStorage, если не нужно сохранять между сессиями
+      if (!persistModels) {
+        localStorage.removeItem('userModels');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [userModels, persistModels]);
 
   const handleEnterAR = () => {
     if (!isARSupported) {
