@@ -1,14 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useAppSelector } from '../../store/hooks';
-import { useNavigate } from 'react-router-dom';
 
 function AR() {
   const mountRef = useRef(null);
   const token = useAppSelector(state => state.auth.token);
   const isDemoUser = token === 'demo-token-no-permissions';
   const [arActive, setArActive] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -297,7 +295,7 @@ function AR() {
         if (logoutButton) {
           logoutButton.addEventListener('click', () => {
             // Перенаправляем на главную страницу
-            navigate('/');
+            window.location.href = '/';
           });
         }
         
@@ -554,7 +552,7 @@ function AR() {
     };
 
     loadScripts();
-  }, [isDemoUser, token, navigate]);
+  }, [isDemoUser, token]);
 
   return (
     <div 
