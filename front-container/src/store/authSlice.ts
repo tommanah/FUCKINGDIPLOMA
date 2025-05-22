@@ -9,7 +9,6 @@ interface AuthState {
   } | null;
 }
 
-// Проверяем есть ли сохраненный токен в localStorage
 const savedToken = localStorage.getItem('auth_token');
 
 const initialState: AuthState = {
@@ -24,7 +23,6 @@ const authSlice = createSlice({
   reducers: {
     setToken: (state, action: PayloadAction<string | null>) => {
       state.token = action.payload;
-      // Сохраняем токен в localStorage для сохранения при перезагрузке страницы
       if (action.payload) {
         localStorage.setItem('auth_token', action.payload);
       } else {

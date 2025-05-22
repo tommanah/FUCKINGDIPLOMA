@@ -211,8 +211,8 @@ function Map() {
             loadedUserModel = gltf.scene;
             
             // Настройка модели для корректного отображения
-            loadedUserModel.position.set(5, 0.5, 0); // Центр карты, немного выше плоскости
-            loadedUserModel.scale.set(0.5, 0.5, 0.5); // Масштабируем модель
+            loadedUserModel.position.set(5, 0.5, 0); // Размещаем в центре карты (x=5 - центр нашей плоскости)
+            loadedUserModel.scale.set(0.2, 0.2, 0.2); // Увеличиваем масштаб модели
             
             // Добавляем в сцену
             scene.add(loadedUserModel);

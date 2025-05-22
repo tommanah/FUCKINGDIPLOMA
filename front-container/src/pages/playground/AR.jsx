@@ -577,18 +577,18 @@ function AR() {
         
         // Функция для показа контекстного меню
         const showObjectContextMenu = (object) => {
+          // Скрываем селектор моделей, когда показываем контекстное меню
+          const modelSelectContainer = document.querySelector('.model-select');
+          if (modelSelectContainer) {
+            modelSelectContainer.style.display = 'none';
+          }
+          
           // Проверяем, существует ли уже меню
           let contextMenu = document.getElementById('objectContextMenu');
           if (contextMenu) {
             // Если меню уже есть, просто показываем его
             contextMenu.style.display = 'flex';
             contextMenuVisible = true;
-            
-            // Скрываем селектор моделей при показе контекстного меню
-            const modelSelectContainer = document.querySelector('.model-select');
-            if (modelSelectContainer) {
-              modelSelectContainer.style.display = 'none';
-            }
             return;
           }
           
@@ -597,13 +597,13 @@ function AR() {
           contextMenu.id = 'objectContextMenu';
           contextMenu.className = 'object-context-menu';
           
+          // Оставляем только кнопки для перемещения и вращения
           const actions = [
             { id: 'moveUp', icon: '⬆️', label: 'Вверх', action: () => moveObject(object, 'up') },
             { id: 'moveDown', icon: '⬇️', label: 'Вниз', action: () => moveObject(object, 'down') },
             { id: 'rotateX', icon: '🔄', label: 'X', action: () => startRotation(object, 'x') },
             { id: 'rotateY', icon: '🔄', label: 'Y', action: () => startRotation(object, 'y') },
             { id: 'rotateZ', icon: '🔄', label: 'Z', action: () => startRotation(object, 'z') },
-            { id: 'duplicate', icon: '📋', label: 'Копия', action: () => duplicateObject(object) },
             { id: 'delete', icon: '🗑️', label: 'Удалить', action: () => deleteObject(object) }
           ];
           
@@ -631,12 +631,6 @@ function AR() {
           // Добавляем меню в DOM
           document.body.appendChild(contextMenu);
           contextMenuVisible = true;
-          
-          // Скрываем селектор моделей при показе контекстного меню
-          const modelSelectContainer = document.querySelector('.model-select');
-          if (modelSelectContainer) {
-            modelSelectContainer.style.display = 'none';
-          }
           
           // Добавляем стили для контекстного меню
           if (!document.getElementById('contextMenuStyles')) {
@@ -697,12 +691,12 @@ function AR() {
           if (contextMenu) {
             contextMenu.style.display = 'none';
             contextMenuVisible = false;
-            
-            // Показываем селектор моделей при скрытии контекстного меню
-            const modelSelectContainer = document.querySelector('.model-select');
-            if (modelSelectContainer) {
-              modelSelectContainer.style.display = 'flex';
-            }
+          }
+          
+          // Показываем обратно селектор моделей при скрытии контекстного меню
+          const modelSelectContainer = document.querySelector('.model-select');
+          if (modelSelectContainer) {
+            modelSelectContainer.style.display = 'flex';
           }
         };
 
@@ -880,6 +874,7 @@ function AR() {
             const placementButton = document.getElementById('placementButton');
             const editButton = document.getElementById('editButton');
             const rotateButton = document.getElementById('rotateButton');
+            const deleteButton = document.getElementById('deleteButton');
             
             // Режим размещения объектов
             if (placementButton && placementButton.classList.contains('active') && reticle.visible) {
@@ -907,24 +902,24 @@ function AR() {
 
                 if (loadedModels[selectedModel]) {
                 mesh = loadedModels[selectedModel].clone();
-                mesh.scale.set(0.2, 0.2, 0.2);
+                mesh.scale.set(0.4, 0.4, 0.4);  // Увеличиваем масштаб всех моделей для лучшей видимости
                 console.log(`Используем модель: ${selectedModel}`, mesh);
                 } else if (selectedModel === 'userModel') {
                 if (loadedModels.userModel) {
                     mesh = loadedModels.userModel.clone();
-                    mesh.scale.set(0.2, 0.2, 0.2);
+                    mesh.scale.set(0.5, 0.5, 0.5);  // Увеличиваем масштаб пользовательской модели
                     console.log('Размещаем пользовательскую модель');
                 } else {
                     console.warn('Пользовательская модель не найдена, используем запасной вариант');
                     mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.2, 0.2, 0.2),
+                    new THREE.BoxGeometry(0.3, 0.3, 0.3),  // Увеличиваем размер запасного куба
                     new THREE.MeshStandardMaterial({ color: 0x00ff00 })
                     );
                 }
                 } else {
                 console.warn('Неизвестный тип модели:', selectedModel, '- создаём резервный куб');
                 mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.15, 0.15, 0.15),
+                    new THREE.BoxGeometry(0.3, 0.3, 0.3),  // Увеличиваем размер резервного куба
                     new THREE.MeshStandardMaterial({ color: 0x1E90FF })
                 );
                 }
@@ -952,7 +947,8 @@ function AR() {
             } 
             // Режим редактирования или вращения - выбор объекта
             else if ((editButton && editButton.classList.contains('active') && !isDemoUser) || 
-                     (rotateButton && rotateButton.classList.contains('active'))) {
+                     (rotateButton && rotateButton.classList.contains('active')) ||
+                     (deleteButton && deleteButton.classList.contains('active') && !isDemoUser)) {
               // Проверяем, не выбрали ли мы какой-то объект
               const raycaster = new THREE.Raycaster();
               const tmpVector = new THREE.Vector2(0, 0); // Центр экрана
@@ -976,6 +972,20 @@ function AR() {
                 // Если нашли корневой объект в placedObjects, используем его
                 if (placedObjects.includes(parent)) {
                   selected = parent;
+                }
+                
+                // Проверяем, находимся ли мы в режиме удаления
+                if (deleteButton && deleteButton.classList.contains('active') && !isDemoUser) {
+                  // Удаляем выбранный объект
+                  deleteObject(selected);
+                  
+                  // После удаления объекта переключаемся обратно в режим размещения через небольшую задержку
+                  setTimeout(() => {
+                    deleteButton.classList.remove('active');
+                    placementButton.classList.add('active');
+                  }, 300);
+                  
+                  return;
                 }
                 
                 // Если ранее был выбран другой объект, снимаем выделение
@@ -1161,12 +1171,14 @@ function AR() {
         const placementButton = document.getElementById('placementButton');
         const editButton = document.getElementById('editButton');
         const rotateButton = document.getElementById('rotateButton');
+        const deleteButton = document.getElementById('deleteButton');
         
         if (placementButton && editButton && rotateButton) {
           placementButton.addEventListener('click', () => {
             placementButton.classList.add('active');
             editButton.classList.remove('active');
             if (rotateButton) rotateButton.classList.remove('active');
+            if (deleteButton) deleteButton.classList.remove('active');
             
             // Скрываем селектор осей при выходе из режима вращения
             const axisSelector = document.getElementById('axisSelector');
@@ -1186,6 +1198,7 @@ function AR() {
               editButton.classList.add('active');
               placementButton.classList.remove('active');
               if (rotateButton) rotateButton.classList.remove('active');
+              if (deleteButton) deleteButton.classList.remove('active');
               
               // Скрываем селектор осей при выходе из режима вращения
               const axisSelector = document.getElementById('axisSelector');
@@ -1199,6 +1212,7 @@ function AR() {
               rotateButton.classList.add('active');
               placementButton.classList.remove('active');
               if (!isDemoUser) editButton.classList.remove('active');
+              if (deleteButton) deleteButton.classList.remove('active');
               
               // Создаем элементы UI для выбора оси вращения, если их еще нет
               let axisSelector = document.getElementById('axisSelector');
@@ -1232,6 +1246,46 @@ function AR() {
                 axisSelector.style.display = 'flex';
               }
             });
+            
+            // Добавляем обработчик для кнопки удаления
+            if (deleteButton) {
+              deleteButton.addEventListener('click', () => {
+                deleteButton.classList.add('active');
+                placementButton.classList.remove('active');
+                if (!isDemoUser) editButton.classList.remove('active');
+                rotateButton.classList.remove('active');
+                
+                // Скрываем селектор осей при выходе из режима вращения
+                const axisSelector = document.getElementById('axisSelector');
+                if (axisSelector) {
+                  axisSelector.style.display = 'none';
+                }
+                
+                // Если есть выбранный объект, удаляем его
+                if (selectedObject) {
+                  deleteObject(selectedObject);
+                  selectedObject = null;
+                } else {
+                  // Если нет выбранного объекта, показываем сообщение
+                  const notification = document.createElement('div');
+                  notification.className = 'model-error-notification';
+                  notification.textContent = 'Сначала выберите объект для удаления';
+                  document.body.appendChild(notification);
+                  
+                  setTimeout(() => {
+                    if (notification.parentNode) {
+                      notification.parentNode.removeChild(notification);
+                    }
+                  }, 3000);
+                }
+                
+                // Переключаемся обратно в режим размещения после удаления
+                setTimeout(() => {
+                  deleteButton.classList.remove('active');
+                  placementButton.classList.add('active');
+                }, 300);
+              });
+            }
           }
         }
         
