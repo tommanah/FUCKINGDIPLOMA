@@ -386,6 +386,48 @@ function AR() {
             burgerMenuBtn.style.display = 'block';
           }
           
+          // Функция для обработки обнаруженных плоскостей
+          const handlePlaneDetected = (plane) => {
+            if (!planes.active) return;
+            
+            const geometry = new THREE.PlaneGeometry(1, 1);
+            let material;
+            
+            // Определяем тип плоскости и выбираем соответствующий материал
+            switch(plane.orientation) {
+              case 'horizontal' && plane.normal.y > 0:
+                material = planes.materials.floor;
+                break;
+              case 'horizontal' && plane.normal.y < 0:
+                material = planes.materials.ceiling;
+                break;
+              case 'vertical':
+                material = planes.materials.wall;
+                break;
+              default:
+                material = planes.materials.other;
+            }
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            planes.meshes.set(plane.id, mesh);
+            scene.add(mesh);
+            
+            // Обновляем положение и размер плоскости
+            plane.addEventListener('update', () => {
+              const mesh = planes.meshes.get(plane.id);
+              if (mesh) {
+                // Обновляем размер
+                mesh.scale.set(plane.extent.width, plane.extent.height, 1);
+                
+                // Обновляем позицию и ориентацию
+                const matrix = new THREE.Matrix4();
+                matrix.fromArray(plane.transform.matrix);
+                mesh.position.setFromMatrixPosition(matrix);
+                mesh.quaternion.setFromRotationMatrix(matrix);
+              }
+            });
+          };
+          
           // Настраиваем hit-test для текущей сессии
           const session = renderer.xr.getSession();
           if (session) {
@@ -940,48 +982,6 @@ function AR() {
               }
             }
           });
-          
-          // Функция для обработки обнаруженных плоскостей
-          const handlePlaneDetected = (plane) => {
-            if (!planes.active) return;
-            
-            const geometry = new THREE.PlaneGeometry(1, 1);
-            let material;
-            
-            // Определяем тип плоскости и выбираем соответствующий материал
-            switch(plane.orientation) {
-              case 'horizontal' && plane.normal.y > 0:
-                material = planes.materials.floor;
-                break;
-              case 'horizontal' && plane.normal.y < 0:
-                material = planes.materials.ceiling;
-                break;
-              case 'vertical':
-                material = planes.materials.wall;
-                break;
-              default:
-                material = planes.materials.other;
-            }
-            
-            const mesh = new THREE.Mesh(geometry, material);
-            planes.meshes.set(plane.id, mesh);
-            scene.add(mesh);
-            
-            // Обновляем положение и размер плоскости
-            plane.addEventListener('update', () => {
-              const mesh = planes.meshes.get(plane.id);
-              if (mesh) {
-                // Обновляем размер
-                mesh.scale.set(plane.extent.width, plane.extent.height, 1);
-                
-                // Обновляем позицию и ориентацию
-                const matrix = new THREE.Matrix4();
-                matrix.fromArray(plane.transform.matrix);
-                mesh.position.setFromMatrixPosition(matrix);
-                mesh.quaternion.setFromRotationMatrix(matrix);
-              }
-            });
-          };
           
           // Функция для обновления положения указателя
           const onXRFrame = (time, frame) => {
