@@ -583,6 +583,12 @@ function AR() {
             // Если меню уже есть, просто показываем его
             contextMenu.style.display = 'flex';
             contextMenuVisible = true;
+            
+            // Скрываем селектор моделей при показе контекстного меню
+            const modelSelectContainer = document.querySelector('.model-select');
+            if (modelSelectContainer) {
+              modelSelectContainer.style.display = 'none';
+            }
             return;
           }
           
@@ -625,6 +631,12 @@ function AR() {
           // Добавляем меню в DOM
           document.body.appendChild(contextMenu);
           contextMenuVisible = true;
+          
+          // Скрываем селектор моделей при показе контекстного меню
+          const modelSelectContainer = document.querySelector('.model-select');
+          if (modelSelectContainer) {
+            modelSelectContainer.style.display = 'none';
+          }
           
           // Добавляем стили для контекстного меню
           if (!document.getElementById('contextMenuStyles')) {
@@ -685,6 +697,12 @@ function AR() {
           if (contextMenu) {
             contextMenu.style.display = 'none';
             contextMenuVisible = false;
+            
+            // Показываем селектор моделей при скрытии контекстного меню
+            const modelSelectContainer = document.querySelector('.model-select');
+            if (modelSelectContainer) {
+              modelSelectContainer.style.display = 'flex';
+            }
           }
         };
 
