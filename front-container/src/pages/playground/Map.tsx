@@ -212,7 +212,7 @@ function Map() {
             
             // Настройка модели для корректного отображения
             loadedUserModel.position.set(5, 0.5, 0); // Размещаем в центре карты (x=5 - центр нашей плоскости)
-            loadedUserModel.scale.set(0.2, 0.2, 0.2); // Увеличиваем масштаб модели
+            loadedUserModel.scale.set(1, 1, 1); // Увеличиваем масштаб модели
             
             // Добавляем в сцену
             scene.add(loadedUserModel);
@@ -294,6 +294,266 @@ function Map() {
     } else {
       console.log('Пользовательская модель не найдена');
     }
+
+    // Добавляем подсолнух, кубик и сферу на карту
+    // 1. Создаем и добавляем подсолнух с использованием GLTF
+    const loadSunflower = () => {
+      // Массив возможных путей для загрузки модели подсолнуха
+      const possiblePaths = [
+        'ar/gltf/sunflower/sunflower.gltf',
+        '/ar/gltf/sunflower/sunflower.gltf',
+        '/pages/playground/ar/gltf/sunflower/sunflower.gltf',
+        './ar/gltf/sunflower/sunflower.gltf',
+        '../../ar/gltf/sunflower/sunflower.gltf',
+        '../ar/gltf/sunflower/sunflower.gltf'
+      ];
+
+      // Сначала создаем статичный подсолнух, который будет видно до загрузки GLTF
+      const sunflowerGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.9, 32);
+      const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x008800 });
+      const stem = new THREE.Mesh(sunflowerGeometry, stemMaterial);
+
+      const headGeometry = new THREE.SphereGeometry(0.45, 32, 32);
+      const headMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+      const head = new THREE.Mesh(headGeometry, headMaterial);
+      head.position.set(0, 0.6, 0);
+
+      const sunflowerModel = new THREE.Group();
+      sunflowerModel.add(stem);
+      sunflowerModel.add(head);
+      sunflowerModel.position.set(3, 0.2, 2); // Позиционируем подсолнух
+      scene.add(sunflowerModel);
+
+      // Пытаемся загрузить GLTF модель подсолнуха
+      let pathIndex = 0;
+      const tryLoadPath = () => {
+        if (pathIndex >= possiblePaths.length) {
+          console.log('Не удалось загрузить GLTF модель подсолнуха, используем статичную');
+          return;
+        }
+
+        const path = possiblePaths[pathIndex];
+        console.log(`Пробуем загрузить подсолнух из: ${path}`);
+
+        gltfLoader.load(
+          path,
+          (gltf) => {
+            console.log('Модель подсолнуха успешно загружена');
+            scene.remove(sunflowerModel); // Удаляем статичный подсолнух
+            
+            const loadedSunflower = gltf.scene;
+            loadedSunflower.position.set(3, 0, 2);
+            loadedSunflower.scale.set(1.5, 1.5, 1.5);
+            scene.add(loadedSunflower);
+          },
+          undefined,
+          (error) => {
+            console.log(`Ошибка загрузки из ${path}:`, error);
+            pathIndex++;
+            tryLoadPath(); // Пробуем следующий путь
+          }
+        );
+      };
+
+      tryLoadPath();
+    };
+
+    // 2. Создаем и добавляем кубик
+    const createCube = () => {
+      const cubeGeometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+      const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cube.position.set(5, 0.2, 3); // Размещаем кубик на карте
+      scene.add(cube);
+      return cube;
+    };
+
+    // 3. Создаем и добавляем сферу
+    const createSphere = () => {
+      const sphereGeo = new THREE.SphereGeometry(0.6, 32, 32);
+      const sphereMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+      sphere.position.set(7, 0.2, 2); // Размещаем сферу на карте
+      scene.add(sphere);
+      return sphere;
+    };
+
+    // Размещаем все объекты на карте
+    loadSunflower();
+    const cube = createCube();
+    const sphere = createSphere();
+
+    // 4. Загружаем и добавляем дерево
+    const loadTree = () => {
+      // Массив возможных путей для загрузки модели дерева
+      const treePaths = [
+        'ar/gltf/sunflower/tree1.glb',
+        '/ar/gltf/sunflower/tree1.glb',
+        '/pages/playground/ar/gltf/sunflower/tree1.glb',
+        './ar/gltf/sunflower/tree1.glb',
+        '../../ar/gltf/sunflower/tree1.glb',
+        '../ar/gltf/sunflower/tree1.glb'
+      ];
+      
+      // Показываем индикатор загрузки
+      const loadingNotification = document.createElement('div');
+      loadingNotification.className = 'model-loading-notification';
+      loadingNotification.textContent = 'Загрузка дерева...';
+      document.body.appendChild(loadingNotification);
+      
+      let pathIndex = 0;
+      const tryLoadTreePath = () => {
+        if (pathIndex >= treePaths.length) {
+          console.log('Не удалось загрузить модель дерева');
+          if (loadingNotification.parentNode) {
+            loadingNotification.parentNode.removeChild(loadingNotification);
+          }
+          return;
+        }
+        
+        const path = treePaths[pathIndex];
+        console.log(`Пробуем загрузить дерево из: ${path}`);
+        
+        gltfLoader.load(
+          path,
+          (gltf) => {
+            console.log('Модель дерева успешно загружена');
+            const treeModel = gltf.scene;
+            
+            // Позиционируем дерево на карте
+            treeModel.position.set(2, 0, 5);
+            // Масштабируем дерево
+            treeModel.scale.set(0.5, 0.5, 0.5);
+            // Добавляем на сцену
+            scene.add(treeModel);
+            
+            // Удаляем индикатор загрузки
+            if (loadingNotification.parentNode) {
+              loadingNotification.parentNode.removeChild(loadingNotification);
+            }
+            
+            // Показываем уведомление об успехе
+            const notification = document.createElement('div');
+            notification.className = 'model-success-notification';
+            notification.textContent = 'Дерево успешно добавлено на карту';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 3000);
+          },
+          (xhr) => {
+            // Прогресс загрузки
+            const progress = Math.round((xhr.loaded / xhr.total) * 100);
+            console.log(`Загрузка дерева: ${progress}%`);
+            if (loadingNotification.parentNode) {
+              loadingNotification.textContent = `Загрузка дерева... ${progress}%`;
+            }
+          },
+          (error) => {
+            console.log(`Ошибка загрузки дерева из ${path}:`, error);
+            pathIndex++;
+            tryLoadTreePath(); // Пробуем следующий путь
+          }
+        );
+      };
+      
+      tryLoadTreePath();
+    };
+    
+    // Загружаем дерево
+    loadTree();
+
+    // 5. Загружаем и добавляем второе дерево (scene.gltf)
+    const loadSecondTree = () => {
+      // Массив возможных путей для загрузки модели второго дерева
+      const secondTreePaths = [
+        'ar/gltf/scene.gltf',
+        '/ar/gltf/scene.gltf',
+        '/pages/playground/ar/gltf/scene.gltf',
+        './ar/gltf/scene.gltf',
+        '../../ar/gltf/scene.gltf',
+        '../ar/gltf/scene.gltf',
+        'ar/gltf/sunflower/scene.gltf',
+        '/ar/gltf/sunflower/scene.gltf',
+        '/pages/playground/ar/gltf/sunflower/scene.gltf',
+        './ar/gltf/sunflower/scene.gltf',
+        '../../ar/gltf/sunflower/scene.gltf',
+        '../ar/gltf/sunflower/scene.gltf'
+      ];
+      
+      // Показываем индикатор загрузки
+      const loadingNotification = document.createElement('div');
+      loadingNotification.className = 'model-loading-notification';
+      loadingNotification.textContent = 'Загрузка второго дерева...';
+      document.body.appendChild(loadingNotification);
+      
+      let pathIndex = 0;
+      const tryLoadSecondTreePath = () => {
+        if (pathIndex >= secondTreePaths.length) {
+          console.log('Не удалось загрузить модель второго дерева');
+          if (loadingNotification.parentNode) {
+            loadingNotification.parentNode.removeChild(loadingNotification);
+          }
+          return;
+        }
+        
+        const path = secondTreePaths[pathIndex];
+        console.log(`Пробуем загрузить второе дерево из: ${path}`);
+        
+        gltfLoader.load(
+          path,
+          (gltf) => {
+            console.log('Модель второго дерева успешно загружена');
+            const secondTreeModel = gltf.scene;
+            
+            // Позиционируем второе дерево на карте в другом месте
+            secondTreeModel.position.set(8, 0, 5);
+            // Масштабируем дерево
+            secondTreeModel.scale.set(0.4, 0.4, 0.4);
+            // Добавляем на сцену
+            scene.add(secondTreeModel);
+            
+            // Удаляем индикатор загрузки
+            if (loadingNotification.parentNode) {
+              loadingNotification.parentNode.removeChild(loadingNotification);
+            }
+            
+            // Показываем уведомление об успехе
+            const notification = document.createElement('div');
+            notification.className = 'model-success-notification';
+            notification.textContent = 'Второе дерево успешно добавлено на карту';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 3000);
+          },
+          (xhr) => {
+            // Прогресс загрузки
+            const progress = Math.round((xhr.loaded / xhr.total) * 100);
+            console.log(`Загрузка второго дерева: ${progress}%`);
+            if (loadingNotification.parentNode) {
+              loadingNotification.textContent = `Загрузка второго дерева... ${progress}%`;
+            }
+          },
+          (error) => {
+            console.log(`Ошибка загрузки второго дерева из ${path}:`, error);
+            pathIndex++;
+            tryLoadSecondTreePath(); // Пробуем следующий путь
+          }
+        );
+      };
+      
+      tryLoadSecondTreePath();
+    };
+    
+    // Загружаем второе дерево
+    loadSecondTree();
 
     // 7. Обработка изменения размера окна
     const handleResize = () => {

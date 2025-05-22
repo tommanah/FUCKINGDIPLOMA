@@ -324,13 +324,13 @@ function AR() {
         startARSessionFunction = startARSession;
         
         // Получаем кнопку Включить AR из Main.tsx и имитируем нажатие на xrButton
-        document.querySelectorAll('button').forEach(button => {
-          if (button.textContent.includes('Включить AR')) {
-            button.addEventListener('click', () => {
-              startARSession();
-            });
-          }
-        });
+        // document.querySelectorAll('button').forEach(button => {
+        //   if (button.textContent.includes('Включить AR')) {
+        //     button.addEventListener('click', () => {
+        //       startARSession();
+        //     });
+        //   }
+        // });
         
         // Массив для хранения размещенных объектов
         const placedObjects = [];

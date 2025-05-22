@@ -134,12 +134,12 @@ function Main() {
                 <button className="mode-button" onClick={handleEnterAR}>Доп. реальность</button>
               </div>
               <div className="map-buttons">
-                <button
+                {/* <button
                   onClick={handleEnterAR}
                   className="map-action-button"
                 >
                   Включить AR
-                </button>
+                </button> */}
                 <button
                   onClick={handleUploadModelClick}
                   className="map-action-button upload-model-button"
