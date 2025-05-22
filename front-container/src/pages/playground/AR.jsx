@@ -410,6 +410,7 @@ function AR() {
         // Добавим переменные для выделения объектов
         let originalMaterials = new Map();
         let highlightedObject = null;
+        let contextMenuVisible = false;
         
         // Функция для выделения объекта
         const highlightObject = (object) => {
@@ -485,6 +486,9 @@ function AR() {
           }
           
           highlightedObject = object;
+          
+          // Показываем контекстное меню
+          showObjectContextMenu(object);
         };
 
         // Функция для отмены выделения объекта
@@ -524,49 +528,261 @@ function AR() {
           if (highlightedObject === object) {
             highlightedObject = null;
           }
+          
+          // Скрываем контекстное меню
+          hideObjectContextMenu();
         };
         
-        // Функция для обработки обнаруженных плоскостей
-        const handlePlaneDetected = (plane) => {
-          if (!planes.active) return;
-          
-          const geometry = new THREE.PlaneGeometry(1, 1);
-          let material;
-          
-          // Определяем тип плоскости и выбираем соответствующий материал
-          switch(plane.orientation) {
-            case 'horizontal' && plane.normal.y > 0:
-              material = planes.materials.floor;
-              break;
-            case 'horizontal' && plane.normal.y < 0:
-              material = planes.materials.ceiling;
-              break;
-            case 'vertical':
-              material = planes.materials.wall;
-              break;
-            default:
-              material = planes.materials.other;
+        // Функция для показа контекстного меню
+        const showObjectContextMenu = (object) => {
+          // Проверяем, существует ли уже меню
+          let contextMenu = document.getElementById('objectContextMenu');
+          if (contextMenu) {
+            // Если меню уже есть, просто показываем его
+            contextMenu.style.display = 'flex';
+            contextMenuVisible = true;
+            return;
           }
           
-          const mesh = new THREE.Mesh(geometry, material);
-          planes.meshes.set(plane.id, mesh);
-          scene.add(mesh);
+          // Создаем контекстное меню
+          contextMenu = document.createElement('div');
+          contextMenu.id = 'objectContextMenu';
+          contextMenu.className = 'object-context-menu';
           
-          // Обновляем положение и размер плоскости
-          plane.addEventListener('update', () => {
-            const mesh = planes.meshes.get(plane.id);
-            if (mesh) {
-              // Обновляем размер
-              mesh.scale.set(plane.extent.width, plane.extent.height, 1);
-              
-              // Обновляем позицию и ориентацию
-              const matrix = new THREE.Matrix4();
-              matrix.fromArray(plane.transform.matrix);
-              mesh.position.setFromMatrixPosition(matrix);
-              mesh.quaternion.setFromRotationMatrix(matrix);
-            }
+          const actions = [
+            { id: 'moveUp', icon: '⬆️', label: 'Вверх', action: () => moveObject(object, 'up') },
+            { id: 'moveDown', icon: '⬇️', label: 'Вниз', action: () => moveObject(object, 'down') },
+            { id: 'rotateX', icon: '🔄', label: 'X', action: () => startRotation(object, 'x') },
+            { id: 'rotateY', icon: '🔄', label: 'Y', action: () => startRotation(object, 'y') },
+            { id: 'rotateZ', icon: '🔄', label: 'Z', action: () => startRotation(object, 'z') },
+            { id: 'duplicate', icon: '📋', label: 'Копия', action: () => duplicateObject(object) },
+            { id: 'delete', icon: '🗑️', label: 'Удалить', action: () => deleteObject(object) }
+          ];
+          
+          // Для демо-пользователей ограничиваем действия
+          const availableActions = isDemoUser 
+            ? actions.filter(a => a.id !== 'duplicate') 
+            : actions;
+          
+          const buttonContainer = document.createElement('div');
+          buttonContainer.className = 'context-menu-buttons';
+          
+          availableActions.forEach(actionInfo => {
+            const button = document.createElement('button');
+            button.className = 'context-menu-button';
+            button.innerHTML = `${actionInfo.icon}<span>${actionInfo.label}</span>`;
+            button.addEventListener('click', (e) => {
+              e.stopPropagation();
+              actionInfo.action();
+            });
+            buttonContainer.appendChild(button);
           });
+          
+          contextMenu.appendChild(buttonContainer);
+          
+          // Добавляем меню в DOM
+          document.body.appendChild(contextMenu);
+          contextMenuVisible = true;
+          
+          // Добавляем стили для контекстного меню
+          if (!document.getElementById('contextMenuStyles')) {
+            const style = document.createElement('style');
+            style.id = 'contextMenuStyles';
+            style.innerHTML = `
+              .object-context-menu {
+                position: fixed;
+                bottom: 70px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0, 0, 0, 0.7);
+                border-radius: 10px;
+                padding: 10px;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+              }
+              .context-menu-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                max-width: 300px;
+              }
+              .context-menu-button {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background: rgba(60, 60, 60, 0.8);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                margin: 5px;
+                padding: 10px;
+                min-width: 60px;
+                height: 60px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: background 0.2s;
+              }
+              .context-menu-button:hover {
+                background: rgba(80, 80, 80, 0.9);
+              }
+              .context-menu-button span {
+                margin-top: 5px;
+                font-size: 10px;
+              }
+            `;
+            document.head.appendChild(style);
+          }
         };
+
+        // Функция для скрытия контекстного меню
+        const hideObjectContextMenu = () => {
+          const contextMenu = document.getElementById('objectContextMenu');
+          if (contextMenu) {
+            contextMenu.style.display = 'none';
+            contextMenuVisible = false;
+          }
+        };
+
+        // Функция для перемещения объекта
+        const moveObject = (object, direction) => {
+          if (!object) return;
+          
+          // Величина перемещения
+          const step = 0.05;
+          
+          switch (direction) {
+            case 'up':
+              object.position.y += step;
+              break;
+            case 'down':
+              object.position.y -= step;
+              break;
+            default:
+              break;
+          }
+        };
+
+        // Функция для начала вращения объекта
+        const startRotation = (object, axis) => {
+          if (!object) return;
+          
+          // Устанавливаем активную ось вращения
+          rotationAxis = axis;
+          
+          // Активируем режим вращения если нужно
+          const rotateButton = document.getElementById('rotateButton');
+          if (rotateButton && !rotateButton.classList.contains('active')) {
+            rotateButton.click();
+          }
+        };
+
+        // Функция для дублирования объекта
+        const duplicateObject = (object) => {
+          if (!object || isDemoUser) return;
+          
+          // Создаем копию объекта
+          const clone = object.clone();
+          
+          // Смещаем копию немного в сторону
+          clone.position.x += 0.1;
+          clone.position.z += 0.1;
+          
+          // Добавляем в сцену
+          scene.add(clone);
+          placedObjects.push(clone);
+          
+          // Выделяем новый объект
+          if (selectedObject) {
+            unhighlightObject(selectedObject);
+          }
+          selectedObject = clone;
+          
+          // Сохраняем оригинальный масштаб для использования в анимации
+          selectedObject.userData.originalScale = selectedObject.scale.clone();
+          
+          // Подсвечиваем новый объект
+          highlightObject(selectedObject);
+        };
+
+        // Функция для удаления объекта
+        const deleteObject = (object) => {
+          if (!object) return;
+          
+          // Находим индекс объекта в массиве размещенных объектов
+          const index = placedObjects.indexOf(object);
+          if (index !== -1) {
+            // Удаляем объект из массива
+            placedObjects.splice(index, 1);
+            
+            // Удаляем анимацию
+            if (object.userData.pulseAnimation) {
+              clearInterval(object.userData.pulseAnimation);
+            }
+            
+            // Удаляем объект из сцены
+            scene.remove(object);
+            
+            // Сбрасываем выделение
+            selectedObject = null;
+            
+            // Скрываем контекстное меню
+            hideObjectContextMenu();
+          }
+        };
+        
+        // Обработчик касаний для вращения объектов
+        renderer.domElement.addEventListener('touchstart', (event) => {
+          // Проверяем, не касается ли пользователь контекстного меню
+          if (contextMenuVisible) {
+            let target = event.target;
+            while (target) {
+              if (target.id === 'objectContextMenu' || target.classList?.contains('context-menu-button')) {
+                return; // Если касание по меню, не обрабатываем его как вращение
+              }
+              target = target.parentElement;
+            }
+          }
+          
+          if (selectedObject && document.getElementById('rotateButton')?.classList.contains('active')) {
+            isRotating = true;
+            // Запоминаем начальную позицию касания
+            rotationStartPosition.x = event.touches[0].clientX;
+            rotationStartPosition.y = event.touches[0].clientY;
+            // Предотвращаем прокрутку страницы при вращении объекта
+            event.preventDefault();
+          }
+        }, { passive: false });
+        
+        renderer.domElement.addEventListener('touchmove', (event) => {
+          if (isRotating && selectedObject) {
+            // Вычисляем смещение от начальной позиции касания
+            const deltaX = (event.touches[0].clientX - rotationStartPosition.x) * 0.01;
+            const deltaY = (event.touches[0].clientY - rotationStartPosition.y) * 0.01;
+            
+            // Применяем вращение в зависимости от выбранной оси
+            if (rotationAxis === 'y') {
+              selectedObject.rotation.y += deltaX;
+            } else if (rotationAxis === 'x') {
+              selectedObject.rotation.x += deltaY;
+            } else if (rotationAxis === 'z') {
+              selectedObject.rotation.z += deltaX;
+            }
+            
+            // Обновляем начальную позицию касания
+            rotationStartPosition.x = event.touches[0].clientX;
+            rotationStartPosition.y = event.touches[0].clientY;
+            
+            // Предотвращаем прокрутку страницы при вращении объекта
+            event.preventDefault();
+          }
+        }, { passive: false });
+        
+        renderer.domElement.addEventListener('touchend', (event) => {
+          isRotating = false;
+        });
         
         // Настройка hit-test
         const setupHitTest = async (session) => {
@@ -725,45 +941,47 @@ function AR() {
             }
           });
           
-          // Обработчик касаний для вращения объектов
-          renderer.domElement.addEventListener('touchstart', (event) => {
-            if (selectedObject && document.getElementById('rotateButton')?.classList.contains('active')) {
-              isRotating = true;
-              // Запоминаем начальную позицию касания
-              rotationStartPosition.x = event.touches[0].clientX;
-              rotationStartPosition.y = event.touches[0].clientY;
-              // Предотвращаем прокрутку страницы при вращении объекта
-              event.preventDefault();
+          // Функция для обработки обнаруженных плоскостей
+          const handlePlaneDetected = (plane) => {
+            if (!planes.active) return;
+            
+            const geometry = new THREE.PlaneGeometry(1, 1);
+            let material;
+            
+            // Определяем тип плоскости и выбираем соответствующий материал
+            switch(plane.orientation) {
+              case 'horizontal' && plane.normal.y > 0:
+                material = planes.materials.floor;
+                break;
+              case 'horizontal' && plane.normal.y < 0:
+                material = planes.materials.ceiling;
+                break;
+              case 'vertical':
+                material = planes.materials.wall;
+                break;
+              default:
+                material = planes.materials.other;
             }
-          }, { passive: false });
-          
-          renderer.domElement.addEventListener('touchmove', (event) => {
-            if (isRotating && selectedObject) {
-              // Вычисляем смещение от начальной позиции касания
-              const deltaX = (event.touches[0].clientX - rotationStartPosition.x) * 0.01;
-              const deltaY = (event.touches[0].clientY - rotationStartPosition.y) * 0.01;
-              
-              // Применяем вращение в зависимости от выбранной оси
-              if (rotationAxis === 'y') {
-                selectedObject.rotation.y += deltaX;
-              } else if (rotationAxis === 'x') {
-                selectedObject.rotation.x += deltaY;
-              } else if (rotationAxis === 'z') {
-                selectedObject.rotation.z += deltaX;
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            planes.meshes.set(plane.id, mesh);
+            scene.add(mesh);
+            
+            // Обновляем положение и размер плоскости
+            plane.addEventListener('update', () => {
+              const mesh = planes.meshes.get(plane.id);
+              if (mesh) {
+                // Обновляем размер
+                mesh.scale.set(plane.extent.width, plane.extent.height, 1);
+                
+                // Обновляем позицию и ориентацию
+                const matrix = new THREE.Matrix4();
+                matrix.fromArray(plane.transform.matrix);
+                mesh.position.setFromMatrixPosition(matrix);
+                mesh.quaternion.setFromRotationMatrix(matrix);
               }
-              
-              // Обновляем начальную позицию касания
-              rotationStartPosition.x = event.touches[0].clientX;
-              rotationStartPosition.y = event.touches[0].clientY;
-              
-              // Предотвращаем прокрутку страницы при вращении объекта
-              event.preventDefault();
-            }
-          }, { passive: false });
-          
-          renderer.domElement.addEventListener('touchend', (event) => {
-            isRotating = false;
-          });
+            });
+          };
           
           // Функция для обновления положения указателя
           const onXRFrame = (time, frame) => {
@@ -894,6 +1112,13 @@ function AR() {
           
           // Очищаем сохраненные материалы
           originalMaterials.clear();
+          
+          // Удаляем контекстное меню
+          const contextMenu = document.getElementById('objectContextMenu');
+          if (contextMenu && contextMenu.parentNode) {
+            contextMenu.parentNode.removeChild(contextMenu);
+          }
+          contextMenuVisible = false;
         });
         
         // Анимация для 3D карты (не AR режим)
