@@ -78,9 +78,7 @@ function AR() {
         const loadedModels = {
           sunflower: null,
           reticle: null,
-          userModel: null,
-          tree1: null,
-          tree2: null
+          userModel: null
         };
         
         // Добавляем селектор моделей
@@ -107,7 +105,7 @@ function AR() {
     //     <button id="rotateButton">🔄 Вращать</button>
     //     <button id="showPlanesButton">🔍 Плоскости</button>
     // </div>
-        
+        userModel.rotation.x = Math.PI /4;
         modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
 
@@ -146,20 +144,6 @@ function AR() {
           } catch (error) {
             console.error('Ошибка при загрузке пользовательской модели:', error);
           }
-        }
-        
-        // Показываем подсказку о новой функции для деревьев
-        if (hasUserModel) {
-          const treeHint = document.createElement('div');
-          treeHint.className = 'model-info-notification';
-          treeHint.textContent = 'Для моделей деревьев доступен поворот на 45 градусов';
-          document.body.appendChild(treeHint);
-          
-          setTimeout(() => {
-            if (treeHint.parentNode) {
-              treeHint.parentNode.removeChild(treeHint);
-            }
-          }, 5000);
         }
         
         // Предотвращаем срабатывание controller select при взаимодействии с UI
@@ -310,8 +294,6 @@ function AR() {
         const tree1Model = new THREE.Group();
         tree1Model.add(tree1Trunk);
         tree1Model.add(tree1Crown);
-        // Вращаем модель дерева на 45 градусов по оси X
-        tree1Model.rotation.x = Math.PI / 4; // 45 градусов в радианах
 
         // Дерево 2 (с шарообразной кроной)
         const tree2Trunk = new THREE.Mesh(
@@ -329,8 +311,6 @@ function AR() {
         const tree2Model = new THREE.Group();
         tree2Model.add(tree2Trunk);
         tree2Model.add(tree2Crown);
-        // Вращаем модель дерева на 45 градусов по оси X
-        tree2Model.rotation.x = Math.PI / 4; // 45 градусов в радианах
 
         // Указатель (ретикл)
         const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
@@ -351,50 +331,13 @@ function AR() {
         
         // Список всех возможных путей для попытки загрузки
         const possiblePaths = [
-          { sunflower: '../ar/gltf/sunflower/sunflower.gltf', reticle: '../ar/gltf/reticle/reticle.gltf', tree1: '../ar/gltf/sunflower/tree1.glb', tree2: '../ar/gltf/sunflower/scene.gltf' },
-          { sunflower: 'ar/gltf/sunflower/sunflower.gltf', reticle: 'ar/gltf/reticle/reticle.gltf', tree1: 'ar/gltf/sunflower/tree1.glb', tree2: 'ar/gltf/sunflower/scene.gltf' },
-          { sunflower: '/ar/gltf/sunflower/sunflower.gltf', reticle: '/ar/gltf/reticle/reticle.gltf', tree1: '/ar/gltf/sunflower/tree1.glb', tree2: '/ar/gltf/sunflower/scene.gltf' },
-          { sunflower: '/pages/playground/ar/gltf/sunflower/sunflower.gltf', reticle: '/pages/playground/ar/gltf/reticle/reticle.gltf', tree1: '/pages/playground/ar/gltf/sunflower/tree1.glb', tree2: '/pages/playground/ar/gltf/sunflower/scene.gltf' },
-          { sunflower: './ar/gltf/sunflower/sunflower.gltf', reticle: './ar/gltf/reticle/reticle.gltf', tree1: './ar/gltf/sunflower/tree1.glb', tree2: './ar/gltf/sunflower/scene.gltf' },
-          { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf', tree1: '../../ar/gltf/sunflower/tree1.glb', tree2: '../../ar/gltf/sunflower/scene.gltf' }
+          { sunflower: '../ar/gltf/sunflower/sunflower.gltf', reticle: '../ar/gltf/reticle/reticle.gltf' },
+          { sunflower: 'ar/gltf/sunflower/sunflower.gltf', reticle: 'ar/gltf/reticle/reticle.gltf' },
+          { sunflower: '/ar/gltf/sunflower/sunflower.gltf', reticle: '/ar/gltf/reticle/reticle.gltf' },
+          { sunflower: '/pages/playground/ar/gltf/sunflower/sunflower.gltf', reticle: '/pages/playground/ar/gltf/reticle/reticle.gltf' },
+          { sunflower: './ar/gltf/sunflower/sunflower.gltf', reticle: './ar/gltf/reticle/reticle.gltf' },
+          { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf' }
         ];
-        
-        // Попытка загрузки GLTF моделей, включая деревья
-        for (const paths of possiblePaths) {
-          // Пробуем загрузить дерево 1
-          if (paths.tree1) {
-            gltfLoader.load(
-              paths.tree1,
-              (gltf) => {
-                console.log('Модель дерева 1 успешно загружена');
-                loadedModels.tree1 = gltf.scene;
-                // Применяем вращение к загруженной модели дерева
-                loadedModels.tree1.rotation.x = Math.PI / 4; // 45 градусов
-              },
-              undefined,
-              (error) => {
-                console.log(`Ошибка загрузки дерева 1 из ${paths.tree1}:`, error);
-              }
-            );
-          }
-          
-          // Пробуем загрузить дерево 2
-          if (paths.tree2) {
-            gltfLoader.load(
-              paths.tree2,
-              (gltf) => {
-                console.log('Модель дерева 2 успешно загружена');
-                loadedModels.tree2 = gltf.scene;
-                // Применяем вращение к загруженной модели дерева
-                loadedModels.tree2.rotation.x = Math.PI / 4; // 45 градусов
-              },
-              undefined,
-              (error) => {
-                console.log(`Ошибка загрузки дерева 2 из ${paths.tree2}:`, error);
-              }
-            );
-          }
-        }
         
         // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
         const xrButton = ARButton.createButton(renderer, {
@@ -693,9 +636,6 @@ function AR() {
           contextMenu.id = 'objectContextMenu';
           contextMenu.className = 'object-context-menu';
           
-          // Определяем, является ли выбранный объект деревом
-          const isTree = object.userData && (object.name?.includes('tree') || object.name?.includes('Tree'));
-          
           // Оставляем только кнопки для перемещения и вращения
           const actions = [
             { id: 'moveUp', icon: '⬆️', label: 'Вверх', action: () => moveObject(object, 'up') },
@@ -705,15 +645,6 @@ function AR() {
             { id: 'rotateZ', icon: '🔄', label: 'Z', action: () => startRotation(object, 'z') },
             { id: 'delete', icon: '🗑️', label: 'Удалить', action: () => deleteObject(object) }
           ];
-          
-          // Для деревьев добавляем специальные кнопки поворота на 45 градусов
-          if (isTree || (selectedModelType && (selectedModelType === 'tree1' || selectedModelType === 'tree2'))) {
-            actions.push(
-              { id: 'rotate45', icon: '↖️', label: '45°', action: () => rotateObject(object, 'x', 45) },
-              { id: 'rotate90', icon: '↑', label: '90°', action: () => rotateObject(object, 'x', 90) },
-              { id: 'rotate0', icon: '↓', label: '0°', action: () => rotateObject(object, 'x', 0) }
-            );
-          }
           
           // Для демо-пользователей ограничиваем действия
           const availableActions = isDemoUser 
@@ -839,30 +770,6 @@ function AR() {
           if (rotateButton && !rotateButton.classList.contains('active')) {
             rotateButton.click();
           }
-        };
-
-        // Функция для установки фиксированного угла вращения объекта
-        const rotateObject = (object, axis, angleDegrees) => {
-          if (!object) return;
-          
-          const angleRadians = (angleDegrees * Math.PI) / 180; // Преобразуем градусы в радианы
-          
-          // Применяем вращение по указанной оси
-          switch(axis) {
-            case 'x':
-              object.rotation.x = angleRadians;
-              break;
-            case 'y':
-              object.rotation.y = angleRadians;
-              break;
-            case 'z':
-              object.rotation.z = angleRadians;
-              break;
-            default:
-              break;
-          }
-          
-          console.log(`Объект повернут на ${angleDegrees} градусов (${angleRadians.toFixed(2)} рад) по оси ${axis}`);
         };
 
         // Функция для дублирования объекта
@@ -1035,14 +942,6 @@ function AR() {
                 if (loadedModels[selectedModel]) {
                 mesh = loadedModels[selectedModel].clone();
                 mesh.scale.set(0.4, 0.4, 0.4);  // Увеличиваем масштаб всех моделей для лучшей видимости
-                
-                // Проверяем, является ли выбранная модель деревом, и если да - применяем вращение
-                if (selectedModel === 'tree1' || selectedModel === 'tree2') {
-                  // Применяем вращение на 45 градусов по оси X
-                  rotateObject(mesh, 'x', 45);
-                  console.log(`Размещаем модель дерева ${selectedModel} с вращением 45 градусов`);
-                }
-                
                 console.log(`Используем модель: ${selectedModel}`, mesh);
                 } else if (selectedModel === 'userModel') {
                 if (loadedModels.userModel) {
