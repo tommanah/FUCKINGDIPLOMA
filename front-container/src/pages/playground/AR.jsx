@@ -700,6 +700,7 @@ function AR() {
                 min-width: 36px;
                 height: 36px;
                 font-size: 9px;
+                bottom: 30px;
                 cursor: pointer;
                 transition: background 0.2s;
               }
