@@ -95,7 +95,7 @@ function AR() {
               <option value="sphere">Сфера</option>
               ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
-
+        <button id="placementButton" class="active">📦 Разместить</button>
         `;
     //     <div class="buttons-container">
     //     <button id="placementButton" class="active">📦 Разместить</button>
