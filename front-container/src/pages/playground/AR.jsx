@@ -626,9 +626,9 @@ function AR() {
           const actions = [
             { id: 'moveUp', icon: '⬆️', label: 'Вверх', action: () => moveObject(object, 'up') },
             { id: 'moveDown', icon: '⬇️', label: 'Вниз', action: () => moveObject(object, 'down') },
-            { id: 'rotateX', icon: '🔄', label: 'X', action: () => startRotation(object, 'x') },
-            { id: 'rotateY', icon: '🔄', label: 'Y', action: () => startRotation(object, 'y') },
-            { id: 'rotateZ', icon: '🔄', label: 'Z', action: () => startRotation(object, 'z') },
+            { id: 'rotateX', icon: '🔄X', label: '', action: () => startRotation(object, 'x') },
+            { id: 'rotateY', icon: '🔄Y', label: '', action: () => startRotation(object, 'y') },
+            { id: 'rotateZ', icon: '🔄Z', label: '', action: () => startRotation(object, 'z') },
             { id: 'delete', icon: '🗑️', label: 'Удалить', action: () => deleteObject(object) }
           ];
           
@@ -669,32 +669,37 @@ function AR() {
                 transform: translateX(-50%);
                 background: rgba(0, 0, 0, 0.7);
                 border-radius: 10px;
-                padding: 10px;
+                padding: 8px 5px;
                 z-index: 1000;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                max-height: 160px;
+                overflow-y: auto;
+                width: 90%;
+                max-width: 500px;
               }
               .context-menu-buttons {
                 display: flex;
+                flex-direction: row;
                 flex-wrap: wrap;
                 justify-content: center;
-                max-width: 300px;
+                width: 100%;
               }
               .context-menu-button {
                 display: flex;
-                flex-direction: column;
+                flex-direction: row;
                 align-items: center;
                 justify-content: center;
                 background: rgba(60, 60, 60, 0.8);
                 color: white;
                 border: none;
                 border-radius: 8px;
-                margin: 5px;
-                padding: 10px;
-                min-width: 60px;
-                height: 60px;
-                font-size: 12px;
+                margin: 3px;
+                padding: 5px 8px;
+                min-width: 36px;
+                height: 36px;
+                font-size: 9px;
                 cursor: pointer;
                 transition: background 0.2s;
               }
@@ -702,8 +707,8 @@ function AR() {
                 background: rgba(80, 80, 80, 0.9);
               }
               .context-menu-button span {
-                margin-top: 5px;
-                font-size: 10px;
+                margin-left: 3px;
+                font-size: 9px;
               }
             `;
             document.head.appendChild(style);
