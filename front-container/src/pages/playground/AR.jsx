@@ -25,6 +25,19 @@ function AR() {
   useEffect(() => {
     if (!mountRef.current) return;
 
+    console.log('AR component mounted, automatically starting AR session');
+    
+    // Функция для автоматической активации AR при загрузке компонента
+    const autoStartAR = () => {
+      // Даем немного времени для инициализации
+      setTimeout(() => {
+        console.log('Auto-starting AR session...');
+        if (startARSessionFunction) {
+          startARSessionFunction();
+        }
+      }, 500);
+    };
+
     // Загружаем скрипты для AR
     const loadScripts = async () => {
       try {
@@ -97,13 +110,14 @@ function AR() {
               <option value="tree2">Дерево 2</option>
               ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
-          <div class="buttons-container">
-              <button id="placementButton" class="active">📦 Разместить</button>
-              <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
-              <button id="rotateButton">🔄 Вращать</button>
-              <button id="showPlanesButton">🔍 Плоскости</button>
-          </div>
+         
         `;
+    //     <div class="buttons-container">
+    //     <button id="placementButton" class="active">📦 Разместить</button>
+    //     <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+    //     <button id="rotateButton">🔄 Вращать</button>
+    //     <button id="showPlanesButton">🔍 Плоскости</button>
+    // </div>
         
         modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
@@ -338,15 +352,16 @@ function AR() {
           { sunflower: '../../ar/gltf/sunflower/sunflower.gltf', reticle: '../../ar/gltf/reticle/reticle.gltf' }
         ];
         
-        // СОЗДАЕМ СТАНДАРТНУЮ КНОПКУ AR ИЗ THREEJS
+        // Создаем XR-кнопку в фоновом режиме (скрытую от пользователя)
+        // Нам нужна эта кнопка для запуска AR программно
         const xrButton = ARButton.createButton(renderer, {
           requiredFeatures: ['hit-test'],
           optionalFeatures: ['dom-overlay'],
           domOverlay: { root: document.body }
         });
-        xrButton.textContent = 'WebXR Start AR';
-        xrButton.id = 'ARButton'; // Устанавливаем ID для программного доступа
-        // document.body.appendChild(xrButton);
+        xrButton.id = 'ARButton';
+        xrButton.style.display = 'none'; // Скрываем кнопку от пользователя
+        document.body.appendChild(xrButton); // Добавляем скрытую кнопку в DOM
         
         // Функция для программного запуска AR сессии
         const startARSession = () => {
@@ -361,14 +376,8 @@ function AR() {
         // Сохраняем функцию запуска в глобальную переменную
         startARSessionFunction = startARSession;
         
-        // Получаем кнопку Включить AR из Main.tsx и имитируем нажатие на xrButton
-        // document.querySelectorAll('button').forEach(button => {
-        //   if (button.textContent.includes('Включить AR')) {
-        //     button.addEventListener('click', () => {
-        //       startARSession();
-        //     });
-        //   }
-        // });
+        // Запускаем AR режим автоматически
+        autoStartAR();
         
         // Массив для хранения размещенных объектов
         const placedObjects = [];
@@ -423,6 +432,62 @@ function AR() {
           if (burgerMenuBtn) {
             burgerMenuBtn.style.display = 'block';
           }
+          
+          // Автоматически размещаем повернутое дерево при запуске AR сессии
+          setTimeout(() => {
+            // Используем дерево 1 (елка)
+            const treeModel = loadedModels.tree1.clone();
+            // Устанавливаем размер дерева
+            treeModel.scale.set(1, 1, 1);
+            // Размещаем дерево перед пользователем
+            treeModel.position.set(0, 0, -1.5);
+            // Поворачиваем дерево (имитация того, что пользователь его повернул)
+            treeModel.rotation.y = Math.PI / 4; // 45 градусов вокруг оси Y
+            treeModel.rotation.x = Math.PI / 12; // небольшой наклон
+            treeModel.userData.selectable = true;
+            
+            // Добавляем дерево на сцену
+            scene.add(treeModel);
+            placedObjects.push(treeModel);
+            
+            // Выделяем дерево для лучшей видимости
+            selectedObject = treeModel;
+            highlightObject(selectedObject);
+            
+            console.log('Повернутое дерево автоматически размещено при старте AR');
+            
+            // Показываем уведомление
+            const notification = document.createElement('div');
+            notification.className = 'model-success-notification';
+            notification.textContent = 'Дерево размещено в пространстве';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+              if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+              }
+            }, 3000);
+            
+            // Добавляем второе дерево с другим поворотом через небольшую паузу
+            setTimeout(() => {
+              // Используем дерево 2 (с шарообразной кроной)
+              const tree2Model = loadedModels.tree2.clone();
+              // Устанавливаем размер дерева
+              tree2Model.scale.set(1.2, 1.2, 1.2); // Чуть больше первого
+              // Размещаем дерево в другом месте
+              tree2Model.position.set(0.7, 0, -1.2);
+              // Поворачиваем дерево по-другому
+              tree2Model.rotation.y = -Math.PI / 3; // -60 градусов вокруг оси Y
+              tree2Model.rotation.z = Math.PI / 10; // небольшой наклон по оси Z
+              tree2Model.userData.selectable = true;
+              
+              // Добавляем дерево на сцену
+              scene.add(tree2Model);
+              placedObjects.push(tree2Model);
+              
+              console.log('Второе повернутое дерево добавлено на сцену');
+            }, 500);
+          }, 1000); // Небольшая задержка для стабилизации AR сессии
           
           // Функция для обработки обнаруженных плоскостей
           const handlePlaneDetected = (plane) => {
