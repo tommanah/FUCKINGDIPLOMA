@@ -93,19 +93,17 @@ function AR() {
               <option value="sunflower">Подсолнух</option>
               <option value="cube">Куб</option>
               <option value="sphere">Сфера</option>
-              <option value="tree1">Дерево 1</option>
-              <option value="tree2">Дерево 2</option>
               ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
-                 <div class="buttons-container">
-        <button id="placementButton" class="active">📦 Разместить</button>
-        <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
-        <button id="rotateButton">🔄 Вращать</button>
-        <button id="showPlanesButton">🔍 Плоскости</button>
-    </div>
+          <div class="buttons-container">
+              <button id="placementButton" class="active">📦 Разместить</button>
+              <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+              <button id="rotateButton">🔄 Вращать</button>
+              <button id="deleteButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>🗑️ Удалить</button>
+              <button id="showPlanesButton">🔍 Плоскости</button>
+          </div>
         `;
-
-        userModel.rotation.x = Math.PI /4;
+        
         modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
 
@@ -133,6 +131,29 @@ function AR() {
                   // Обновляем значение выбранной модели
                   selectedModelType = 'userModel';
                 }
+                
+                // Сразу размещаем модель в центре экрана
+                const center = new THREE.Vector3(0, 0, -1);  // 1 метр перед камерой
+                const mesh = loadedModels.userModel.clone();
+                mesh.scale.set(0.2, 0.2, 0.2);
+                mesh.position.copy(center);
+                mesh.userData.selectable = true;
+                
+                // Добавляем в сцену
+                scene.add(mesh);
+                placedObjects.push(mesh);
+                
+                // Показываем уведомление
+                const notification = document.createElement('div');
+                notification.className = 'model-success-notification';
+                notification.textContent = 'Модель размещена в центре экрана';
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                  if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                  }
+                }, 3000);
               },
               function(xhr) {
                 console.log('Прогресс загрузки модели из Main:', (xhr.loaded / xhr.total * 100) + '%');
@@ -278,40 +299,6 @@ function AR() {
         const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
         const sphereModel = new THREE.Mesh(sphereGeometry, sphereMaterial);
 
-        // Дерево 1 (елка)
-        const tree1Trunk = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.05, 0.07, 0.3, 12),
-          new THREE.MeshStandardMaterial({ color: 0x8B4513 })
-        );
-        tree1Trunk.position.y = 0.05;
-        
-        const tree1Crown = new THREE.Mesh(
-          new THREE.ConeGeometry(0.2, 0.4, 16),
-          new THREE.MeshStandardMaterial({ color: 0x228B22 })
-        );
-        tree1Crown.position.y = 0.3;
-        
-        const tree1Model = new THREE.Group();
-        tree1Model.add(tree1Trunk);
-        tree1Model.add(tree1Crown);
-
-        // Дерево 2 (с шарообразной кроной)
-        const tree2Trunk = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.04, 0.06, 0.25, 12),
-          new THREE.MeshStandardMaterial({ color: 0x8B4513 })
-        );
-        tree2Trunk.position.y = 0.05;
-        
-        const tree2Crown = new THREE.Mesh(
-          new THREE.SphereGeometry(0.2, 16, 16),
-          new THREE.MeshStandardMaterial({ color: 0x006400 })
-        );
-        tree2Crown.position.y = 0.25;
-        
-        const tree2Model = new THREE.Group();
-        tree2Model.add(tree2Trunk);
-        tree2Model.add(tree2Crown);
-
         // Указатель (ретикл)
         const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
         const reticleMaterial = new THREE.MeshBasicMaterial({ color: 0x0099ff, transparent: true, opacity: 0.7 });
@@ -320,8 +307,6 @@ function AR() {
         loadedModels.sunflower = sunflowerModel;
         loadedModels.cube = cubeModel;
         loadedModels.sphere = sphereModel;
-        loadedModels.tree1 = tree1Model;
-        loadedModels.tree2 = tree2Model;
         loadedModels.reticle = reticleModel;
         };
 
@@ -363,13 +348,13 @@ function AR() {
         startARSessionFunction = startARSession;
         
         // Получаем кнопку Включить AR из Main.tsx и имитируем нажатие на xrButton
-        // document.querySelectorAll('button').forEach(button => {
-        //   if (button.textContent.includes('Включить AR')) {
-        //     button.addEventListener('click', () => {
-        //       startARSession();
-        //     });
-        //   }
-        // });
+        document.querySelectorAll('button').forEach(button => {
+          if (button.textContent.includes('Включить AR')) {
+            button.addEventListener('click', () => {
+              startARSession();
+            });
+          }
+        });
         
         // Массив для хранения размещенных объектов
         const placedObjects = [];
@@ -941,24 +926,24 @@ function AR() {
 
                 if (loadedModels[selectedModel]) {
                 mesh = loadedModels[selectedModel].clone();
-                mesh.scale.set(0.4, 0.4, 0.4);  // Увеличиваем масштаб всех моделей для лучшей видимости
+                mesh.scale.set(0.2, 0.2, 0.2);
                 console.log(`Используем модель: ${selectedModel}`, mesh);
                 } else if (selectedModel === 'userModel') {
                 if (loadedModels.userModel) {
                     mesh = loadedModels.userModel.clone();
-                    mesh.scale.set(0.5, 0.5, 0.5);  // Увеличиваем масштаб пользовательской модели
+                    mesh.scale.set(0.2, 0.2, 0.2);
                     console.log('Размещаем пользовательскую модель');
                 } else {
                     console.warn('Пользовательская модель не найдена, используем запасной вариант');
                     mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.3, 0.3, 0.3),  // Увеличиваем размер запасного куба
+                    new THREE.BoxGeometry(0.2, 0.2, 0.2),
                     new THREE.MeshStandardMaterial({ color: 0x00ff00 })
                     );
                 }
                 } else {
                 console.warn('Неизвестный тип модели:', selectedModel, '- создаём резервный куб');
                 mesh = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.3, 0.3, 0.3),  // Увеличиваем размер резервного куба
+                    new THREE.BoxGeometry(0.15, 0.15, 0.15),
                     new THREE.MeshStandardMaterial({ color: 0x1E90FF })
                 );
                 }
