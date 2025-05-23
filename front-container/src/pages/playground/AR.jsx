@@ -97,14 +97,14 @@ function AR() {
               <option value="tree2">Дерево 2</option>
               ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
-         
+                 <div class="buttons-container">
+        <button id="placementButton" class="active">📦 Разместить</button>
+        <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+        <button id="rotateButton">🔄 Вращать</button>
+        <button id="showPlanesButton">🔍 Плоскости</button>
+    </div>
         `;
-    //     <div class="buttons-container">
-    //     <button id="placementButton" class="active">📦 Разместить</button>
-    //     <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
-    //     <button id="rotateButton">🔄 Вращать</button>
-    //     <button id="showPlanesButton">🔍 Плоскости</button>
-    // </div>
+
         userModel.rotation.x = Math.PI /4;
         modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
