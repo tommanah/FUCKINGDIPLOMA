@@ -95,14 +95,15 @@ function AR() {
               <option value="sphere">Сфера</option>
               ${hasUserModel ? `<option value="userModel">Модель: ${userModel.name}</option>` : ''}
           </select>
-          <div class="buttons-container">
-              <button id="placementButton" class="active">📦 Разместить</button>
-              <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
-              <button id="rotateButton">🔄 Вращать</button>
-              <button id="deleteButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>🗑️ Удалить</button>
-              <button id="showPlanesButton">🔍 Плоскости</button>
-          </div>
+
         `;
+    //     <div class="buttons-container">
+    //     <button id="placementButton" class="active">📦 Разместить</button>
+    //     <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
+    //     <button id="rotateButton">🔄 Вращать</button>
+    //     <button id="deleteButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>🗑️ Удалить</button>
+    //     <button id="showPlanesButton">🔍 Плоскости</button>
+    // </div>
         
         modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
