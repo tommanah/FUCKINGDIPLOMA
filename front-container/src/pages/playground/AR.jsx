@@ -97,17 +97,58 @@ function AR() {
           </select>
         <button id="placementButton" class="active">📦 Разместить</button>
         `;
-    //     <div class="buttons-container">
-    //     <button id="placementButton" class="active">📦 Разместить</button>
-    //     <button id="editButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>✏️ Редактировать</button>
-    //     <button id="rotateButton">🔄 Вращать</button>
-    //     <button id="deleteButton" ${isDemoUser ? 'disabled style="opacity: 0.5;cursor: not-allowed;"' : ''}>🗑️ Удалить</button>
-    //     <button id="showPlanesButton">🔍 Плоскости</button>
-    // </div>
         
         modelSelectContainer.innerHTML = modelSelectHTML;
         uiContainer.appendChild(modelSelectContainer);
 
+        // Добавляем стили для селектора моделей
+        if (!document.getElementById('modelSelectStyles')) {
+          const style = document.createElement('style');
+          style.id = 'modelSelectStyles';
+          style.innerHTML = `
+            .model-select {
+              position: fixed;
+              bottom: 20px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: rgba(0, 0, 0, 0.7);
+              border-radius: 10px;
+              padding: 10px;
+              z-index: 999;
+              display: flex;
+              flex-direction: row;
+              align-items: center;
+              justify-content: center;
+              width: 90%;
+              max-width: 500px;
+            }
+            
+            .model-select select {
+              margin-right: 10px;
+              padding: 8px;
+              border-radius: 5px;
+              border: none;
+              background: #fff;
+              font-size: 14px;
+            }
+            
+            .model-select button {
+              padding: 8px 12px;
+              border-radius: 5px;
+              border: none;
+              background: #4CAF50;
+              color: white;
+              font-size: 14px;
+              cursor: pointer;
+            }
+            
+            .model-select button.active {
+              background: #2E7D32;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+        
         // Добавляем свет
         const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
         light.position.set(0.5, 1, 0.25);
@@ -602,12 +643,6 @@ function AR() {
         
         // Функция для показа контекстного меню
         const showObjectContextMenu = (object) => {
-          // Скрываем селектор моделей, когда показываем контекстное меню
-          const modelSelectContainer = document.querySelector('.model-select');
-          if (modelSelectContainer) {
-            modelSelectContainer.style.display = 'none';
-          }
-          
           // Проверяем, существует ли уже меню
           let contextMenu = document.getElementById('objectContextMenu');
           if (contextMenu) {
@@ -664,7 +699,7 @@ function AR() {
             style.innerHTML = `
               .object-context-menu {
                 position: fixed;
-                bottom: 70px;
+                bottom: 150px;
                 left: 50%;
                 transform: translateX(-50%);
                 background: rgba(0, 0, 0, 0.7);
@@ -700,7 +735,6 @@ function AR() {
                 min-width: 36px;
                 height: 36px;
                 font-size: 9px;
-                bottom: 30px;
                 cursor: pointer;
                 transition: background 0.2s;
               }
@@ -722,12 +756,6 @@ function AR() {
           if (contextMenu) {
             contextMenu.style.display = 'none';
             contextMenuVisible = false;
-          }
-          
-          // Показываем обратно селектор моделей при скрытии контекстного меню
-          const modelSelectContainer = document.querySelector('.model-select');
-          if (modelSelectContainer) {
-            modelSelectContainer.style.display = 'flex';
           }
         };
 
